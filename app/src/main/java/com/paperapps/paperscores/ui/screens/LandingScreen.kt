@@ -32,16 +32,18 @@ fun LandingScreen(
 
         PanoramaHeader(
             pagerState = pagerState,
-            titles = listOf("todays games", "profile"),
+            titles = listOf("games", "profile"),
             coroutineScope = coroutineScope,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            peekPadding = 48.dp
         )
 
         Spacer(modifier = Modifier.height(16.dp))
 
         HorizontalPager(
             state = pagerState,
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.weight(1f),
+            contentPadding = PaddingValues(end = 48.dp)
         ) { page ->
             when (page) {
                 0 -> TodaysGamesScreen(onGameClick = onGameClick)

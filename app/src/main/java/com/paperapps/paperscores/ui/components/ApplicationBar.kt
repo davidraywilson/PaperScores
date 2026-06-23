@@ -1,19 +1,17 @@
 package com.paperapps.paperscores.ui.components
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -50,7 +48,7 @@ fun ApplicationBar(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 12.dp, horizontal = 16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            horizontalArrangement = Arrangement.End,
             verticalAlignment = Alignment.Top
         ) {
             Row {
@@ -62,7 +60,6 @@ fun ApplicationBar(
                         Box(
                             modifier = Modifier
                                 .size(48.dp)
-                                .clip(CircleShape)
                                 .clickable {
                                     action.onClick()
                                     expanded = false
@@ -92,7 +89,6 @@ fun ApplicationBar(
             Box(
                 modifier = Modifier
                     .size(48.dp)
-                    .clip(CircleShape)
                     .clickable { expanded = !expanded },
                 contentAlignment = Alignment.Center
             ) {
@@ -108,8 +104,8 @@ fun ApplicationBar(
 
         AnimatedVisibility(
             visible = expanded,
-            enter = expandVertically(animationSpec = tween(300)),
-            exit = shrinkVertically(animationSpec = tween(300))
+            enter = fadeIn(animationSpec = snap()),
+            exit = fadeOut(animationSpec = snap())
         ) {
             Column(
                 modifier = Modifier
@@ -134,3 +130,5 @@ fun ApplicationBar(
         }
     }
 }
+
+

@@ -56,7 +56,8 @@ fun GameDetailsScreen(
             pagerState = pagerState,
             titles = listOf("box score", "stats", "lineups"),
             coroutineScope = coroutineScope,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            peekPadding = 48.dp
         )
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -75,7 +76,8 @@ fun GameDetailsScreen(
             
             HorizontalPager(
                 state = pagerState,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
+                contentPadding = PaddingValues(end = 48.dp)
             ) { page ->
                 when (page) {
                     0 -> BoxScoreTab(match)
@@ -118,7 +120,36 @@ fun BoxScoreTab(match: com.paperapps.paperscores.network.models.MatchDetails) {
             match.matchTime.split(",").take(3).joinToString(",").trim()
         }
 
-        Text(dateFormatted, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(dateFormatted, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+
+            if (match.status == "Active") {
+                Text(
+                    text = match.liveTime.ifBlank { "LIVE" },
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = PureBlack
+                )
+            } else if (match.status == "Finished") {
+                Text(
+                    text = "FT",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = EInkGrey
+                )
+            } else if (match.status != "Upcoming") {
+                Text(
+                    text = match.status,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = PureBlack
+                )
+            }
+        }
 
         if (match.stadiumName.isNotBlank()) {
             Spacer(modifier = Modifier.height(4.dp))
