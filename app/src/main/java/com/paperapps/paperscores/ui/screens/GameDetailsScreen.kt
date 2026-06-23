@@ -11,6 +11,7 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -87,6 +88,8 @@ fun GameDetailsScreen(
             }
         }
 
+        val context = androidx.compose.ui.platform.LocalContext.current
+
         ApplicationBar(
             actions = listOf(
                 AppbarAction(
@@ -98,6 +101,28 @@ fun GameDetailsScreen(
                     icon = Icons.Filled.Refresh,
                     label = "Refresh",
                     onClick = { viewModel.loadMatchDetails(matchId) }
+                ),
+                AppbarAction(
+                    icon = Icons.Filled.Notifications,
+                    label = "Pin Score",
+                    onClick = {
+                        if (android.provider.Settings.canDrawOverlays(context)) {
+                            val intent = android.content.Intent(context, com.paperapps.paperscores.service.ScoreOverlayService::class.java).apply {
+                                putExtra("matchId", matchId)
+                            }
+                            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                                context.startForegroundService(intent)
+                            } else {
+                                context.startService(intent)
+                            }
+                        } else {
+                            val intent = android.content.Intent(
+                                android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION, 
+                                android.net.Uri.parse("package:${context.packageName}")
+                            )
+                            context.startActivity(intent)
+                        }
+                    }
                 )
             )
         )

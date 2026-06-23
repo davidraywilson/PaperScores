@@ -79,42 +79,56 @@ fun MatchCard(match: MatchDetails, onClick: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 12.dp)
+            .padding(vertical = 10.dp)
             .clickable(onClick = onClick)
     ) {
         Column {
             TeamRow(team = match.homeTeam, score = match.score.home?.toString() ?: "")
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(3.dp))
             TeamRow(team = match.awayTeam, score = match.score.away?.toString() ?: "")
             
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(6.dp))
             
-            if (match.status !in listOf("Finished", "Active", "Upcoming") && match.liveTime.isNotBlank() && match.liveTime != match.status) {
-                Column(
-                    horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
-                    modifier = Modifier.align(androidx.compose.ui.Alignment.CenterHorizontally)
-                ) {
-                    Text(
-                        text = match.liveTime,
-                        fontSize = 12.sp,
-                        color = PureBlack
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = match.status,
-                        fontSize = 12.sp,
-                        color = PureBlack,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            } else {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+            ) {
                 Text(
-                    text = match.matchTime,
+                    text = match.tournamentName,
                     fontSize = 12.sp,
                     color = PureBlack,
-                    modifier = Modifier.align(androidx.compose.ui.Alignment.CenterHorizontally),
-                    fontWeight = if (match.status !in listOf("Finished", "Active", "Upcoming")) FontWeight.Bold else FontWeight.Normal
+                    fontWeight = FontWeight.Normal,
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f).padding(end = 8.dp)
                 )
+
+                if (match.status !in listOf("Finished", "Active", "Upcoming") && match.liveTime.isNotBlank() && match.liveTime != match.status) {
+                    Column(
+                        horizontalAlignment = androidx.compose.ui.Alignment.End
+                    ) {
+                        Text(
+                            text = match.liveTime,
+                            fontSize = 12.sp,
+                            color = PureBlack
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = match.status,
+                            fontSize = 12.sp,
+                            color = PureBlack,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                } else {
+                    Text(
+                        text = match.matchTime,
+                        fontSize = 12.sp,
+                        color = PureBlack,
+                        fontWeight = if (match.status !in listOf("Finished", "Active", "Upcoming")) FontWeight.Bold else FontWeight.Normal
+                    )
+                }
             }
         }
     }
@@ -129,20 +143,20 @@ fun TeamRow(team: com.paperapps.paperscores.network.models.Team, score: String) 
         AsyncImage(
             model = "https://images.fotmob.com/image_resources/logo/teamlogo/${team.id}.png",
             contentDescription = team.name,
-            modifier = Modifier.size(36.dp)
+            modifier = Modifier.size(28.dp)
         )
-        Spacer(modifier = Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(10.dp))
         
         Box(
             modifier = Modifier
                 .background(PureBlack)
-                .padding(horizontal = 12.dp, vertical = 6.dp)
+                .padding(horizontal = 10.dp, vertical = 5.dp)
         ) {
             Text(
                 text = team.name.uppercase(),
                 color = PureWhite,
                 fontWeight = FontWeight.Bold,
-                fontSize = 16.sp,
+                fontSize = 13.sp,
                 maxLines = 1
             )
         }
@@ -152,15 +166,15 @@ fun TeamRow(team: com.paperapps.paperscores.network.models.Team, score: String) 
         Box(
             modifier = Modifier
                 .background(PureBlack)
-                .defaultMinSize(minWidth = 36.dp)
-                .padding(horizontal = 8.dp, vertical = 6.dp),
+                .defaultMinSize(minWidth = 28.dp)
+                .padding(horizontal = 6.dp, vertical = 5.dp),
             contentAlignment = androidx.compose.ui.Alignment.Center
         ) {
             Text(
                 text = score,
                 color = PureWhite,
                 fontWeight = FontWeight.Bold,
-                fontSize = 16.sp
+                fontSize = 13.sp
             )
         }
     }

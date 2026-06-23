@@ -118,6 +118,7 @@ class SoccerRepository private constructor(private val dao: SoccerDao) {
             for (i in 1 until leagues.size) {
                 val leagueBlock = leagues[i]
                 val tourneyId = extractAttribute(leagueBlock, "pl") ?: extractAttribute(leagueBlock, "id") ?: continue
+                val tourneyName = extractAttribute(leagueBlock, "plName") ?: extractAttribute(leagueBlock, "name") ?: ""
                 
                 val matches = leagueBlock.split("<match ")
                 for (j in 1 until matches.size) {
@@ -218,7 +219,8 @@ class SoccerRepository private constructor(private val dao: SoccerDao) {
                                 else -> statusStr
                             },
                             liveTime = liveMinute,
-                            tournamentId = tourneyId
+                            tournamentId = tourneyId,
+                            tournamentName = tourneyName
                         )
                         parsedMatches.add(matchDetails)
                     }
@@ -239,7 +241,8 @@ class SoccerRepository private constructor(private val dao: SoccerDao) {
                             status = if (detail.status !in listOf("Active", "Upcoming", "Finished")) detail.status else parsedMatches[idx].status,
                             matchTime = if (detail.status !in listOf("Active", "Upcoming", "Finished")) detail.status else parsedMatches[idx].matchTime,
                             liveTime = if (detail.liveTime.isNotBlank()) detail.liveTime else parsedMatches[idx].liveTime,
-                            score = detail.score
+                            score = detail.score,
+                            tournamentName = if (detail.tournamentName.isNotBlank()) detail.tournamentName else parsedMatches[idx].tournamentName
                         )
                     }
                 }
