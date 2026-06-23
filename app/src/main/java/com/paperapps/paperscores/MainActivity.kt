@@ -9,7 +9,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import com.paperapps.paperscores.ui.navigation.MainNavigation
-import com.mudita.mmd.ThemeMMD
+import com.paperapps.paperscores.theme.SoccerScoresTheme
 
 class MainActivity : ComponentActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
@@ -17,7 +17,12 @@ class MainActivity : ComponentActivity() {
 
     enableEdgeToEdge()
     setContent {
-      ThemeMMD { Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) { MainNavigation() } }
+      SoccerScoresTheme { 
+        Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) { 
+          MainNavigation() 
+        } 
+      }
     }
   }
 }
+

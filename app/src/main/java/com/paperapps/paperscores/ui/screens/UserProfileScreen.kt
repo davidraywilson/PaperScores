@@ -1,7 +1,14 @@
 package com.paperapps.paperscores.ui.screens
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -9,15 +16,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.paperapps.paperscores.ui.viewmodel.UserProfileViewModel
-import com.mudita.mmd.components.buttons.ButtonMMD
-import com.mudita.mmd.components.lazy.LazyColumnMMD
-import com.mudita.mmd.components.text.TextMMD
-import com.mudita.mmd.components.divider.HorizontalDividerMMD
-import androidx.compose.material3.OutlinedTextField
-import com.paperapps.paperscores.network.models.Team
-import com.paperapps.paperscores.network.models.Tournament
 import com.paperapps.paperscores.network.models.SearchResult
+import com.paperapps.paperscores.theme.PureBlack
+import com.paperapps.paperscores.theme.PureWhite
+import com.paperapps.paperscores.theme.EInkGrey
+import com.paperapps.paperscores.ui.viewmodel.UserProfileViewModel
 
 @Composable
 fun UserProfileScreen(
@@ -30,7 +33,7 @@ fun UserProfileScreen(
     var teamSearchQuery by remember { mutableStateOf("") }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        LazyColumnMMD(
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(16.dp)
@@ -42,15 +45,23 @@ fun UserProfileScreen(
                         teamSearchQuery = it 
                         viewModel.performSearch(it)
                     },
-                    placeholder = { TextMMD("Search for a team or tournament") },
-                    modifier = Modifier.fillMaxWidth()
+                    placeholder = { Text("search for a team or tournament") },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = PureWhite,
+                        unfocusedContainerColor = PureWhite,
+                        focusedIndicatorColor = PureBlack,
+                        unfocusedIndicatorColor = PureBlack,
+                        cursorColor = PureBlack
+                    ),
+                    singleLine = true
                 )
                 Spacer(modifier = Modifier.height(8.dp))
             }
 
             if (isSearching) {
                 item {
-                    TextMMD("Searching...", fontSize = 14.sp)
+                    Text("searching...", fontSize = 14.sp, color = EInkGrey)
                     Spacer(modifier = Modifier.height(8.dp))
                 }
             } else if (teamSearchQuery.isNotBlank() && searchResults.isNotEmpty()) {
@@ -62,37 +73,40 @@ fun UserProfileScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 8.dp),
+                            .padding(vertical = 12.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        TextMMD(name, fontSize = 16.sp)
-                        ButtonMMD(
-                            onClick = { 
-                                viewModel.follow(result) 
-                                viewModel.clearSearch()
-                                teamSearchQuery = ""
-                            },
+                        Text(name, fontSize = 16.sp, color = PureBlack)
+                        Box(
+                            modifier = Modifier
+                                .background(PureBlack)
+                                .clickable {
+                                    viewModel.follow(result)
+                                    viewModel.clearSearch()
+                                    teamSearchQuery = ""
+                                }
+                                .padding(horizontal = 16.dp, vertical = 8.dp)
                         ) {
-                            TextMMD("Follow")
+                            Text("follow", color = PureWhite, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
                 item {
                     Spacer(modifier = Modifier.height(8.dp))
-                    HorizontalDividerMMD(thickness = 1.dp)
+                    HorizontalDivider(thickness = 2.dp, color = PureBlack)
                     Spacer(modifier = Modifier.height(8.dp))
                 }
             } else if (teamSearchQuery.isNotBlank() && !isSearching) {
                 item {
-                    TextMMD("No results found for \"$teamSearchQuery\"", fontSize = 14.sp)
+                    Text("no results found for \"$teamSearchQuery\"", fontSize = 14.sp, color = PureBlack)
                     Spacer(modifier = Modifier.height(8.dp))
                 }
             }
 
             item {
                 Spacer(modifier = Modifier.height(24.dp))
-                TextMMD("Followed Teams", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                Text("followed teams", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = PureBlack)
                 Spacer(modifier = Modifier.height(8.dp))
             }
 
@@ -100,22 +114,23 @@ fun UserProfileScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 8.dp),
+                        .padding(vertical = 12.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    TextMMD(team.name, fontSize = 16.sp)
-                    ButtonMMD(
-                        onClick = { viewModel.unfollowTeam(team.id) }
-                    ) {
-                        TextMMD("Unfollow")
-                    }
+                    Text(team.name, fontSize = 16.sp, color = PureBlack)
+                    Text(
+                        text = "unfollow",
+                        color = PureBlack,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.clickable { viewModel.unfollowTeam(team.id) }.padding(8.dp)
+                    )
                 }
             }
 
             item {
                 Spacer(modifier = Modifier.height(24.dp))
-                TextMMD("Followed Tournaments", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                Text("followed tournaments", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = PureBlack)
                 Spacer(modifier = Modifier.height(8.dp))
             }
 
@@ -123,18 +138,20 @@ fun UserProfileScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 8.dp),
+                        .padding(vertical = 12.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    TextMMD(tournament.name, fontSize = 16.sp)
-                    ButtonMMD(
-                        onClick = { viewModel.unfollowTournament(tournament.id) }
-                    ) {
-                        TextMMD("Unfollow")
-                    }
+                    Text(tournament.name, fontSize = 16.sp, color = PureBlack)
+                    Text(
+                        text = "unfollow",
+                        color = PureBlack,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.clickable { viewModel.unfollowTournament(tournament.id) }.padding(8.dp)
+                    )
                 }
             }
         }
     }
 }
+
