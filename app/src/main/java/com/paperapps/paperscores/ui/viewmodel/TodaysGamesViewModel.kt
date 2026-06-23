@@ -9,6 +9,7 @@ class TodaysGamesViewModel : ViewModel() {
     private val repository = SoccerRepository.getInstance()
     
     val todaysGames = repository.todaysGames
+    val isLoading = repository.isLoadingTodaysGames
 
     init {
         refreshGames()

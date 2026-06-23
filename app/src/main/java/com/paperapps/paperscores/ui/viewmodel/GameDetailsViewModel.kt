@@ -17,6 +17,7 @@ class GameDetailsViewModel : ViewModel() {
 
     fun loadMatchDetails(matchId: String) {
         viewModelScope.launch {
+            _matchDetails.value = null
             _matchDetails.value = repository.getMatchDetails(matchId)
         }
     }

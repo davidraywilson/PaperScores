@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.CoroutineScope
@@ -42,6 +43,9 @@ class SoccerRepository private constructor(private val dao: SoccerDao) {
     }
 
     private val _rawTodaysGames = MutableStateFlow<List<MatchDetails>>(emptyList())
+    
+    private val _isLoadingTodaysGames = MutableStateFlow(true)
+    val isLoadingTodaysGames: StateFlow<Boolean> = _isLoadingTodaysGames.asStateFlow()
 
     val followedTeams: StateFlow<List<Team>> = dao.getFollowedTeamsFlow()
         .map { list -> list.map { it.toTeam() } }
@@ -72,6 +76,8 @@ class SoccerRepository private constructor(private val dao: SoccerDao) {
     }
 
     suspend fun refreshTodaysGames() = coroutineScope {
+        _isLoadingTodaysGames.value = true
+        try {
         val format = SimpleDateFormat("yyyyMMdd", Locale.getDefault())
         val calendar = Calendar.getInstance()
         
@@ -243,6 +249,8 @@ class SoccerRepository private constructor(private val dao: SoccerDao) {
         } catch (e: Exception) {
             e.printStackTrace()
             _rawTodaysGames.value = emptyList()
+        } finally {
+            _isLoadingTodaysGames.value = false
         }
     }
 

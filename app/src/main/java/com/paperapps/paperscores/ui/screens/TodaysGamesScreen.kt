@@ -28,13 +28,27 @@ fun TodaysGamesScreen(
     viewModel: TodaysGamesViewModel = viewModel()
 ) {
     val todaysGames by viewModel.todaysGames.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
 
     LaunchedEffect(Unit) {
         viewModel.refreshGames()
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        if (todaysGames.isEmpty()) {
+        if (isLoading) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(top = 32.dp),
+                contentAlignment = androidx.compose.ui.Alignment.TopCenter
+            ) {
+                Text(
+                    text = "Loading...",
+                    fontSize = 16.sp,
+                    color = PureBlack
+                )
+            }
+        } else if (todaysGames.isEmpty()) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
