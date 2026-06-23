@@ -77,7 +77,6 @@ class SoccerRepository private constructor(private val dao: SoccerDao) {
 
     suspend fun refreshTodaysGames() = coroutineScope {
         _isLoadingTodaysGames.value = true
-        try {
         val format = SimpleDateFormat("yyyyMMdd", Locale.getDefault())
         val calendar = Calendar.getInstance()
         
@@ -97,6 +96,7 @@ class SoccerRepository private constructor(private val dao: SoccerDao) {
 
         if (responses.isEmpty()) {
             _rawTodaysGames.value = emptyList()
+            _isLoadingTodaysGames.value = false
             return@coroutineScope
         }
 
@@ -249,9 +249,8 @@ class SoccerRepository private constructor(private val dao: SoccerDao) {
         } catch (e: Exception) {
             e.printStackTrace()
             _rawTodaysGames.value = emptyList()
-        } finally {
-            _isLoadingTodaysGames.value = false
         }
+        _isLoadingTodaysGames.value = false
     }
 
     suspend fun getMatchDetails(matchId: String): MatchDetails? {
