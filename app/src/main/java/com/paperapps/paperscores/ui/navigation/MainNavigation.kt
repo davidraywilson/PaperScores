@@ -41,6 +41,7 @@ fun MainNavigation() {
         composable(
             "game_details/{matchId}",
             arguments = listOf(navArgument("matchId") { type = NavType.StringType }),
+            deepLinks = listOf(androidx.navigation.navDeepLink { uriPattern = "paperscores://game/{matchId}" }),
             enterTransition = { fadeIn(animationSpec = snap()) },
             exitTransition = { fadeOut(animationSpec = snap()) },
             popEnterTransition = { fadeIn(animationSpec = snap()) },

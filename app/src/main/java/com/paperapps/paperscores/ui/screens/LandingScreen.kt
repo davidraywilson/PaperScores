@@ -6,26 +6,33 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.paperapps.paperscores.repository.SoccerRepository
 import com.paperapps.paperscores.ui.components.AppbarAction
 import com.paperapps.paperscores.ui.components.ApplicationBar
 import com.paperapps.paperscores.ui.components.PanoramaHeader
+import com.paperapps.paperscores.ui.viewmodel.TodaysGamesViewModel
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun LandingScreen(
-    onGameClick: (String) -> Unit
+    onGameClick: (String) -> Unit,
+    todaysGamesViewModel: TodaysGamesViewModel = viewModel()
 ) {
     val pagerState = rememberPagerState(pageCount = { 2 })
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
+    val isToday by todaysGamesViewModel.isToday.collectAsState()
 
     Column(modifier = Modifier.fillMaxSize()) {
         Spacer(modifier = Modifier.height(48.dp)) // Top padding
@@ -46,24 +53,40 @@ fun LandingScreen(
             contentPadding = PaddingValues(end = 48.dp)
         ) { page ->
             when (page) {
-                0 -> TodaysGamesScreen(onGameClick = onGameClick)
+                0 -> TodaysGamesScreen(onGameClick = onGameClick, viewModel = todaysGamesViewModel)
                 1 -> UserProfileScreen()
             }
         }
 
-        ApplicationBar(
-            actions = listOf(
+        val actions = mutableListOf<AppbarAction>()
+        
+        if (!isToday && pagerState.currentPage == 0) {
+            actions.add(
                 AppbarAction(
-                    icon = Icons.Filled.Refresh,
-                    label = "Refresh",
+                    icon = Icons.Filled.DateRange,
+                    label = "Today",
                     onClick = {
-                        Toast.makeText(context, "Refreshing...", Toast.LENGTH_SHORT).show()
-                        coroutineScope.launch {
-                            SoccerRepository.getInstance().refreshTodaysGames()
-                        }
+                        todaysGamesViewModel.returnToToday()
                     }
                 )
             )
+        }
+        
+        actions.add(
+            AppbarAction(
+                icon = Icons.Filled.Refresh,
+                label = "Refresh",
+                onClick = {
+                    Toast.makeText(context, "Refreshing...", Toast.LENGTH_SHORT).show()
+                    coroutineScope.launch {
+                        SoccerRepository.getInstance().refreshTodaysGames(todaysGamesViewModel.selectedDate.value)
+                    }
+                }
+            )
+        )
+
+        ApplicationBar(
+            actions = actions
         )
     }
 }

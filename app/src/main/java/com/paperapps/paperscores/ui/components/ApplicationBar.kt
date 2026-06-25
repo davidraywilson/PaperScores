@@ -42,7 +42,6 @@ fun ApplicationBar(
         modifier = modifier
             .fillMaxWidth()
             .background(PureWhite)
-            .clickable(enabled = !expanded) { expanded = true }
     ) {
         Row(
             modifier = Modifier
@@ -59,7 +58,7 @@ fun ApplicationBar(
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(48.dp)
+                                .size(40.dp)
                                 .clickable {
                                     action.onClick()
                                     expanded = false
@@ -88,7 +87,7 @@ fun ApplicationBar(
 
             Box(
                 modifier = Modifier
-                    .size(48.dp)
+                    .size(40.dp)
                     .clickable { expanded = !expanded },
                 contentAlignment = Alignment.Center
             ) {

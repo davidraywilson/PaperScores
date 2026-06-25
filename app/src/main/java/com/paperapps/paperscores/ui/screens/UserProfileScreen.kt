@@ -30,13 +30,14 @@ fun UserProfileScreen(
     val followedTournaments by viewModel.followedTournaments.collectAsState()
     val searchResults by viewModel.searchResults.collectAsState()
     val isSearching by viewModel.isSearching.collectAsState()
+    val teamFixtures by viewModel.teamFixtures.collectAsState()
     var teamSearchQuery by remember { mutableStateOf("") }
 
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(16.dp)
+                .padding(vertical = 0.dp, horizontal = 16.dp),
         ) {
             item {
                 OutlinedTextField(
@@ -110,22 +111,24 @@ fun UserProfileScreen(
                 Spacer(modifier = Modifier.height(8.dp))
             }
 
-            items(followedTeams) { team ->
+            items(followedTeams.chunked(2)) { rowTeams ->
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    Text(team.name, fontSize = 16.sp, color = PureBlack)
-                    Text(
-                        text = "unfollow",
-                        color = PureBlack,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.clickable { viewModel.unfollowTeam(team.id) }.padding(8.dp)
-                    )
+                    for (team in rowTeams) {
+                        TeamGridCard(
+                            team = team,
+                            nextMatch = teamFixtures[team.id],
+                            onUnfollow = { viewModel.unfollowTeam(team.id) },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    if (rowTeams.size == 1) {
+                        Spacer(modifier = Modifier.weight(1f))
+                    }
                 }
+                Spacer(modifier = Modifier.height(16.dp))
             }
 
             item {

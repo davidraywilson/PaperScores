@@ -21,7 +21,13 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.JsonElement
-
+import com.paperapps.paperscores.network.models.TeamNextMatch
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.jsonPrimitive
+import java.text.SimpleDateFormat
+import java.util.Locale
+import java.util.TimeZone
+import java.util.Calendar
 val JsonElement.jsonObjectOrNull: JsonObject? get() = if (this is JsonObject) this else null
 val JsonElement.jsonArrayOrNull: kotlinx.serialization.json.JsonArray? get() = if (this is kotlinx.serialization.json.JsonArray) this else null
 class FotMobApiClient {
@@ -106,9 +112,90 @@ class FotMobApiClient {
                     eventsArray?.forEach { eventEl ->
                         val ev = eventEl.jsonObjectOrNull
                         if (ev != null) {
-                            val timeStr = ev["timeStr"]?.toString()?.toIntOrNull() ?: 0
+                            val rawTime = ev["time"]?.toString()?.toIntOrNull() ?: 0
+                            val parsedTimeStr = ev["timeStr"]?.toString()?.trim('"')
+                            val timeStr = if (!parsedTimeStr.isNullOrBlank() && parsedTimeStr != "null") {
+                                parsedTimeStr.replace(" ", "")
+                            } else {
+                                rawTime.toString()
+                            }
                             val type = ev["type"]?.toString()?.trim('"') ?: ""
-                            val nameStr = ev["nameStr"]?.toString()?.trim('"') ?: ""
+                            var nameStr = ev["nameStr"]?.toString()?.trim('"') ?: ""
+
+                            if (type == "AddedTime") {
+                                val minutesAddedStr = ev["minutesAddedStr"]?.toString()?.trim('"')
+                                if (!minutesAddedStr.isNullOrBlank() && minutesAddedStr != "null") {
+                                    nameStr = minutesAddedStr
+                                }
+                            }
+
+                            if (nameStr.isBlank()) {
+                                val swapArray = ev["swap"]?.jsonArrayOrNull
+                                if (swapArray != null && swapArray.size >= 2) {
+                                    val playerIn = swapArray[0].jsonObjectOrNull?.get("name")?.toString()?.trim('"') ?: ""
+                                    val playerOut = swapArray[1].jsonObjectOrNull?.get("name")?.toString()?.trim('"') ?: ""
+                                    nameStr = "In: $playerIn\nOut: $playerOut"
+                                } else {
+                                    val playerObj = ev["player"]?.jsonObjectOrNull
+                                    val playerName = playerObj?.get("name")?.toString()?.trim('"')
+                                    if (!playerName.isNullOrBlank() && playerName != "null") {
+                                        nameStr = playerName
+                                    }
+                                }
+                            }
+
+                            val assistStr = ev["assistStr"]?.toString()?.trim('"')
+                            if (!assistStr.isNullOrBlank() && assistStr != "null") {
+                                nameStr += "\n$assistStr"
+                            }
+
+                            val goalDescription = ev["goalDescription"]?.toString()?.trim('"')
+                            if (!goalDescription.isNullOrBlank() && goalDescription != "null") {
+                                nameStr += "\n$goalDescription"
+                            }
+                            
+                            if (type == "Card") {
+                                val card = ev["card"]?.toString()?.trim('"')
+                                if (!card.isNullOrBlank() && card != "null") {
+                                    nameStr += "\n$card"
+                                }
+                            }
+
+                            val suffix = ev["suffix"]?.toString()?.trim('"')
+                            if (!suffix.isNullOrBlank() && suffix != "null") {
+                                nameStr += "\n$suffix"
+                            }
+
+                            if (type == "VAR") {
+                                val ignoredKeys = setOf("nameStr", "timeStr", "type", "reactKey", "profileUrl", "playerId", "firstName", "lastName", "fullName", "isHome", "eventId", "homeScore", "awayScore", "time", "overloadTime", "newScore", "shotmapEvent")
+                                val extraInfo = StringBuilder()
+                                ev.entries.forEach { (k, v) ->
+                                    if (k !in ignoredKeys) {
+                                        val strVal = v.toString().trim('"')
+                                        if (strVal != "null" && strVal.isNotBlank()) {
+                                            if (strVal.startsWith("{")) {
+                                                val obj = v.jsonObjectOrNull
+                                                val defaultText = obj?.get("defaultText")?.toString()?.trim('"')
+                                                val fallbackText = obj?.get("fallbackText")?.toString()?.trim('"')
+                                                val translation = obj?.get("translation")?.toString()?.trim('"')
+                                                if (!defaultText.isNullOrBlank() && defaultText != "null") extraInfo.append("\n$defaultText")
+                                                else if (!fallbackText.isNullOrBlank() && fallbackText != "null") extraInfo.append("\n$fallbackText")
+                                                else if (!translation.isNullOrBlank() && translation != "null") extraInfo.append("\n$translation")
+                                            } else if (!strVal.startsWith("[")) {
+                                                if (strVal != "false" && strVal != "true" && strVal.toIntOrNull() == null && !strVal.contains("VAR")) {
+                                                    extraInfo.append("\n$strVal")
+                                                } else if (strVal.contains("VAR", ignoreCase = true) || strVal.contains("Goal", ignoreCase = true) || strVal.contains("Penalty", ignoreCase = true)) {
+                                                    extraInfo.append("\n$strVal")
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                if (extraInfo.isNotBlank()) {
+                                    nameStr += extraInfo.toString()
+                                }
+                            }
+
                             eventsList.add(MatchEvent(timeStr, type, nameStr))
                         }
                     }
@@ -203,6 +290,88 @@ class FotMobApiClient {
     suspend fun searchEntities(query: String): JsonObject? {
         return try {
             client.get("https://apigw.fotmob.com/searchapi/suggest?term=$query&lang=en").body()
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
+    suspend fun getTeamNextMatch(teamId: String): TeamNextMatch? {
+        return try {
+            val response = client.get("https://www.fotmob.com/teams/$teamId/overview/team") {
+                header(io.ktor.http.HttpHeaders.CacheControl, "no-cache")
+            }
+            val text = response.bodyAsText()
+            val regex = """<script id="__NEXT_DATA__" type="application/json">(.*?)</script>""".toRegex(RegexOption.DOT_MATCHES_ALL)
+            val match = regex.find(text)
+            if (match != null) {
+                val jsonString = match.groupValues[1]
+                val jsonObject = Json { ignoreUnknownKeys = true }.parseToJsonElement(jsonString).jsonObjectOrNull
+                val pageProps = jsonObject?.get("props")?.jsonObjectOrNull?.get("pageProps")?.jsonObjectOrNull
+                val fallback = pageProps?.get("fallback")?.jsonObjectOrNull
+                val teamData = fallback?.get("team-$teamId")?.jsonObjectOrNull
+                val fixtures = teamData?.get("fixtures")?.jsonObjectOrNull
+                val allFixtures = fixtures?.get("allFixtures")?.jsonObjectOrNull
+                val fixturesArray = allFixtures?.get("fixtures")?.jsonArrayOrNull
+                
+                if (fixturesArray != null) {
+                    val nextMatchObj = fixturesArray.firstOrNull { 
+                        val notStarted = it.jsonObjectOrNull?.get("notStarted")?.jsonPrimitive?.booleanOrNull
+                        notStarted == true
+                    }?.jsonObjectOrNull
+                    
+                    if (nextMatchObj != null) {
+                        val opponentObj = nextMatchObj["opponent"]?.jsonObjectOrNull
+                        val opponentName = opponentObj?.get("name")?.toString()?.trim('"') ?: ""
+                        
+                        val homeObj = nextMatchObj["home"]?.jsonObjectOrNull
+                        val homeId = homeObj?.get("id")?.toString() ?: ""
+                        val isHome = homeId == teamId
+                        
+                        val statusObj = nextMatchObj["status"]?.jsonObjectOrNull
+                        val utcTime = statusObj?.get("utcTime")?.toString()?.trim('"')
+                        
+                        var matchDateStr = ""
+                        var matchTimeStr = ""
+                        
+                        if (utcTime != null) {
+                            try {
+                                val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US)
+                                sdf.timeZone = TimeZone.getTimeZone("UTC")
+                                val date = sdf.parse(utcTime)
+                                if (date != null) {
+                                    val dateFmt = SimpleDateFormat("EEE, MMM d", Locale.US)
+                                    dateFmt.timeZone = TimeZone.getDefault()
+                                    val timeFmt = SimpleDateFormat("h:mm a", Locale.US)
+                                    timeFmt.timeZone = TimeZone.getDefault()
+                                    
+                                    val calMatch = Calendar.getInstance()
+                                    calMatch.time = date
+                                    val calToday = Calendar.getInstance()
+                                    
+                                    if (calMatch.get(Calendar.YEAR) == calToday.get(Calendar.YEAR) &&
+                                        calMatch.get(Calendar.DAY_OF_YEAR) == calToday.get(Calendar.DAY_OF_YEAR)) {
+                                        matchDateStr = "Today"
+                                    } else {
+                                        matchDateStr = dateFmt.format(date)
+                                    }
+                                    matchTimeStr = timeFmt.format(date)
+                                }
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                            }
+                        }
+                        
+                        return TeamNextMatch(
+                            opponentName = opponentName,
+                            isHome = isHome,
+                            matchDate = matchDateStr,
+                            matchTime = matchTimeStr
+                        )
+                    }
+                }
+            }
+            null
         } catch (e: Exception) {
             e.printStackTrace()
             null

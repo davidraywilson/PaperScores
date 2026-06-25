@@ -1,14 +1,6 @@
-const https = require('https');
+const Fotmob = require('fotmob').default;
+const fotmob = new Fotmob();
 
-https.get('https://www.fotmob.com/match/5225665', {
-  headers: {
-    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)'
-  }
-}, (res) => {
-  let data = '';
-  res.on('data', (chunk) => { data += chunk; });
-  res.on('end', () => {
-    const fs = require('fs');
-    fs.writeFileSync('match.html', data);
-  });
-});
+fotmob.getTeam(9825).then(res => {
+    console.log(JSON.stringify(res.fixtures.allFixtures.fixtures[0]));
+}).catch(console.error);

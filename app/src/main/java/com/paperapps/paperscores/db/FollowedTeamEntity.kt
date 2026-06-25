@@ -10,7 +10,11 @@ data class FollowedTeamEntity(
     val name: String,
     val imageUrl: String
 ) {
-    fun toTeam() = Team(id = id, name = name, imageUrl = imageUrl)
+    fun toTeam() = Team(
+        id = id, 
+        name = name, 
+        imageUrl = imageUrl.ifEmpty { "https://images.fotmob.com/image_resources/logo/teamlogo/${id}.png" }
+    )
     
     companion object {
         fun fromTeam(team: Team) = FollowedTeamEntity(

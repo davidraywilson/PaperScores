@@ -10,7 +10,11 @@ data class FollowedTournamentEntity(
     val name: String,
     val imageUrl: String
 ) {
-    fun toTournament() = Tournament(id = id, name = name, imageUrl = imageUrl)
+    fun toTournament() = Tournament(
+        id = id, 
+        name = name, 
+        imageUrl = imageUrl.ifEmpty { "https://images.fotmob.com/image_resources/logo/leaguelogo/${id}.png" }
+    )
     
     companion object {
         fun fromTournament(tournament: Tournament) = FollowedTournamentEntity(

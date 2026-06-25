@@ -43,6 +43,8 @@ import com.paperapps.paperscores.repository.SoccerRepository
 import com.paperapps.paperscores.theme.PureBlack
 import com.paperapps.paperscores.theme.PureWhite
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.MutableStateFlow
+import androidx.compose.animation.core.animateDpAsState
 
 class ScoreOverlayService : Service(), LifecycleOwner, ViewModelStoreOwner, SavedStateRegistryOwner {
     private val lifecycleRegistry = LifecycleRegistry(this)
@@ -51,11 +53,13 @@ class ScoreOverlayService : Service(), LifecycleOwner, ViewModelStoreOwner, Save
     
     private var windowManager: WindowManager? = null
     private var composeView: ComposeView? = null
+    private var dismissView: ComposeView? = null
     private val repository = SoccerRepository.getInstance()
 
     private var matchId: String? = null
     private val scope = CoroutineScope(Dispatchers.IO + Job())
     private var isPolling = false
+    private val isHoveringDismiss = MutableStateFlow(false)
 
     override fun onCreate() {
         super.onCreate()
@@ -134,11 +138,20 @@ class ScoreOverlayService : Service(), LifecycleOwner, ViewModelStoreOwner, Save
                 }
 
                 currentMatch?.let { match ->
-                    ScoreBubble(match, onClose = {
-                        stopSelf()
-                    })
+                    ScoreBubble(match)
                 }
             }
+        }
+
+        dismissView = ComposeView(this).apply {
+            setViewTreeLifecycleOwner(this@ScoreOverlayService)
+            setViewTreeViewModelStoreOwner(this@ScoreOverlayService)
+            setViewTreeSavedStateRegistryOwner(this@ScoreOverlayService)
+            setContent {
+                val hovering by isHoveringDismiss.collectAsState()
+                DismissZone(isHovering = hovering)
+            }
+            visibility = View.GONE
         }
 
         val layoutParams = WindowManager.LayoutParams(
@@ -156,11 +169,26 @@ class ScoreOverlayService : Service(), LifecycleOwner, ViewModelStoreOwner, Save
         layoutParams.x = 100
         layoutParams.y = 200
 
+        val dismissParams = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+            else
+                WindowManager.LayoutParams.TYPE_PHONE,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+            PixelFormat.TRANSLUCENT
+        ).apply {
+            gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+            y = 150
+        }
+
         composeView?.setOnTouchListener(object : View.OnTouchListener {
             private var initialX = 0
             private var initialY = 0
             private var initialTouchX = 0f
             private var initialTouchY = 0f
+            private var isClick = false
 
             override fun onTouch(v: View, event: MotionEvent): Boolean {
                 when (event.action) {
@@ -169,12 +197,49 @@ class ScoreOverlayService : Service(), LifecycleOwner, ViewModelStoreOwner, Save
                         initialY = layoutParams.y
                         initialTouchX = event.rawX
                         initialTouchY = event.rawY
+                        isClick = true
+                        dismissView?.visibility = View.VISIBLE
+                        isHoveringDismiss.value = false
                         return true
                     }
                     MotionEvent.ACTION_MOVE -> {
-                        layoutParams.x = initialX + (event.rawX - initialTouchX).toInt()
-                        layoutParams.y = initialY + (event.rawY - initialTouchY).toInt()
+                        val dx = event.rawX - initialTouchX
+                        val dy = event.rawY - initialTouchY
+                        if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+                            isClick = false
+                        }
+                        layoutParams.x = initialX + dx.toInt()
+                        layoutParams.y = initialY + dy.toInt()
                         windowManager?.updateViewLayout(composeView, layoutParams)
+
+                        dismissView?.let { dv ->
+                            val location = IntArray(2)
+                            dv.getLocationOnScreen(location)
+                            val dismissX = location[0]
+                            val dismissY = location[1]
+                            val centerX = dismissX + dv.width / 2
+                            val centerY = dismissY + dv.height / 2
+
+                            val distance = Math.hypot((event.rawX - centerX).toDouble(), (event.rawY - centerY).toDouble())
+                            isHoveringDismiss.value = distance < 250f
+                        }
+                        return true
+                    }
+                    MotionEvent.ACTION_UP -> {
+                        dismissView?.visibility = View.GONE
+                        if (isHoveringDismiss.value) {
+                            stopSelf()
+                        } else if (isClick) {
+                            val intent = Intent(
+                                Intent.ACTION_VIEW,
+                                android.net.Uri.parse("paperscores://game/$matchId"),
+                                this@ScoreOverlayService,
+                                MainActivity::class.java
+                            ).apply {
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                            }
+                            startActivity(intent)
+                        }
                         return true
                     }
                 }
@@ -185,6 +250,7 @@ class ScoreOverlayService : Service(), LifecycleOwner, ViewModelStoreOwner, Save
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_START)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
         windowManager?.addView(composeView, layoutParams)
+        windowManager?.addView(dismissView, dismissParams)
     }
 
     override fun onDestroy() {
@@ -196,6 +262,10 @@ class ScoreOverlayService : Service(), LifecycleOwner, ViewModelStoreOwner, Save
             windowManager?.removeView(composeView)
             composeView = null
         }
+        if (dismissView != null) {
+            windowManager?.removeView(dismissView)
+            dismissView = null
+        }
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -206,7 +276,7 @@ class ScoreOverlayService : Service(), LifecycleOwner, ViewModelStoreOwner, Save
 }
 
 @Composable
-fun ScoreBubble(match: MatchDetails, onClose: () -> Unit) {
+fun ScoreBubble(match: MatchDetails) {
     Box(
         modifier = Modifier
             .padding(8.dp)
@@ -256,18 +326,27 @@ fun ScoreBubble(match: MatchDetails, onClose: () -> Unit) {
                     fontSize = 14.sp,
                     color = PureBlack
                 )
-                
-                Spacer(modifier = Modifier.width(12.dp))
-                
-                Icon(
-                    imageVector = Icons.Filled.Close,
-                    contentDescription = "Close",
-                    tint = PureBlack,
-                    modifier = Modifier
-                        .size(16.dp)
-                        .clickable { onClose() }
-                )
             }
         }
+    }
+}
+
+@Composable
+fun DismissZone(isHovering: Boolean) {
+    val size by animateDpAsState(targetValue = if (isHovering) 72.dp else 56.dp)
+    Box(
+        modifier = Modifier
+            .size(size)
+            .clip(androidx.compose.foundation.shape.CircleShape)
+            .background(if (isHovering) PureBlack else PureWhite)
+            .border(2.dp, PureBlack, androidx.compose.foundation.shape.CircleShape),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = Icons.Filled.Close,
+            contentDescription = "Dismiss",
+            tint = if (isHovering) PureWhite else PureBlack,
+            modifier = Modifier.size(32.dp)
+        )
     }
 }

@@ -3,6 +3,7 @@ package com.paperapps.paperscores.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.paperapps.paperscores.network.models.Team
+import com.paperapps.paperscores.network.models.TeamNextMatch
 import com.paperapps.paperscores.network.models.Tournament
 import com.paperapps.paperscores.network.models.SearchResult
 import com.paperapps.paperscores.repository.SoccerRepository
@@ -18,6 +19,9 @@ class UserProfileViewModel : ViewModel() {
     val followedTeams: StateFlow<List<Team>> = repository.followedTeams
     val followedTournaments: StateFlow<List<Tournament>> = repository.followedTournaments
 
+    private val _teamFixtures = MutableStateFlow<Map<String, TeamNextMatch>>(emptyMap())
+    val teamFixtures: StateFlow<Map<String, TeamNextMatch>> = _teamFixtures.asStateFlow()
+
     private val _searchResults = MutableStateFlow<List<SearchResult>>(emptyList())
     val searchResults: StateFlow<List<SearchResult>> = _searchResults.asStateFlow()
 
@@ -25,6 +29,15 @@ class UserProfileViewModel : ViewModel() {
     val isSearching: StateFlow<Boolean> = _isSearching.asStateFlow()
 
     private var searchJob: Job? = null
+
+    init {
+        viewModelScope.launch {
+            followedTeams.collect { teams ->
+                val matchMap = repository.fetchNextMatchesForTeams(teams.map { it.id })
+                _teamFixtures.value = matchMap
+            }
+        }
+    }
 
     fun performSearch(query: String) {
         searchJob?.cancel()

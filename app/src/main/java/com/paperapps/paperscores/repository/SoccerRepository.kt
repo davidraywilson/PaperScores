@@ -3,6 +3,7 @@ package com.paperapps.paperscores.repository
 import com.paperapps.paperscores.network.FotMobApiClient
 import com.paperapps.paperscores.network.models.MatchDetails
 import com.paperapps.paperscores.network.models.Team
+import com.paperapps.paperscores.network.models.TeamNextMatch
 import com.paperapps.paperscores.network.models.Tournament
 import com.paperapps.paperscores.network.models.SearchResult
 import com.paperapps.paperscores.network.models.Score
@@ -75,11 +76,13 @@ class SoccerRepository private constructor(private val dao: SoccerDao) {
         return regex.find(block)?.groupValues?.get(1)
     }
 
-    suspend fun refreshTodaysGames() = coroutineScope {
+    suspend fun refreshTodaysGames(date: Date? = null) = coroutineScope {
         _isLoadingTodaysGames.value = true
         val format = SimpleDateFormat("yyyyMMdd", Locale.getDefault())
         val calendar = Calendar.getInstance()
-        
+        if (date != null) {
+            calendar.time = date
+        }
         val todayStr = format.format(calendar.time)
         calendar.add(Calendar.DATE, -1)
         val yesterdayStr = format.format(calendar.time)
@@ -295,7 +298,8 @@ class SoccerRepository private constructor(private val dao: SoccerDao) {
                 
                 val name = text.substringBefore("|")
                 if (id.isNotEmpty() && name.isNotEmpty()) {
-                    results.add(SearchResult.TeamResult(Team(id, name, "")))
+                    val imageUrl = "https://images.fotmob.com/image_resources/logo/teamlogo/${id}.png"
+                    results.add(SearchResult.TeamResult(Team(id, name, imageUrl)))
                 }
             }
 
@@ -308,7 +312,8 @@ class SoccerRepository private constructor(private val dao: SoccerDao) {
                 
                 val name = text.substringBefore("|")
                 if (id.isNotEmpty() && name.isNotEmpty()) {
-                    results.add(SearchResult.TournamentResult(Tournament(id, name, "")))
+                    val imageUrl = "https://images.fotmob.com/image_resources/logo/leaguelogo/${id}.png"
+                    results.add(SearchResult.TournamentResult(Tournament(id, name, imageUrl)))
                 }
             }
         } catch (e: Exception) {
@@ -340,6 +345,21 @@ class SoccerRepository private constructor(private val dao: SoccerDao) {
         scope.launch {
             dao.deleteTournament(tournamentId)
         }
+    }
+
+    suspend fun fetchNextMatchesForTeams(teamIds: List<String>): Map<String, TeamNextMatch> {
+        val resultMap = mutableMapOf<String, TeamNextMatch>()
+        coroutineScope {
+            teamIds.map { teamId ->
+                async {
+                    val match = apiClient.getTeamNextMatch(teamId)
+                    if (match != null) {
+                        resultMap[teamId] = match
+                    }
+                }
+            }.awaitAll()
+        }
+        return resultMap
     }
 
     companion object {

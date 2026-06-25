@@ -4,7 +4,7 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class MatchEvent(
-    val timeStr: Int,
+    val timeStr: String,
     val type: String,
     val nameStr: String
 )
@@ -51,6 +51,14 @@ data class Team(
     val id: String,
     val name: String,
     val imageUrl: String
+)
+
+@Serializable
+data class TeamNextMatch(
+    val opponentName: String,
+    val isHome: Boolean,
+    val matchDate: String,
+    val matchTime: String
 )
 
 @Serializable

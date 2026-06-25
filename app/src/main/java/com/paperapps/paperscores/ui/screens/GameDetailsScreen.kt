@@ -1,8 +1,6 @@
 package com.paperapps.paperscores.ui.screens
 
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -11,17 +9,24 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.material.icons.filled.SportsSoccer
+import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material.icons.filled.Tv
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.border
 import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -35,7 +40,6 @@ import com.paperapps.paperscores.ui.components.DashedDivider
 import com.paperapps.paperscores.ui.components.PanoramaHeader
 import com.paperapps.paperscores.ui.viewmodel.GameDetailsViewModel
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun GameDetailsScreen(
     matchId: String,
@@ -103,7 +107,7 @@ fun GameDetailsScreen(
                     onClick = { viewModel.loadMatchDetails(matchId) }
                 ),
                 AppbarAction(
-                    icon = Icons.Filled.Notifications,
+                    icon = Icons.Outlined.PushPin,
                     label = "Pin Score",
                     onClick = {
                         if (android.provider.Settings.canDrawOverlays(context)) {
@@ -134,7 +138,7 @@ fun BoxScoreTab(match: com.paperapps.paperscores.network.models.MatchDetails) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp)
+            .padding(vertical = 0.dp, horizontal = 16.dp),
     ) {
         val dateFormatted = try {
             val formatterIn = java.time.format.DateTimeFormatter.ofPattern("EEE, MMM d, yyyy, HH:mm z", java.util.Locale.US)
@@ -189,7 +193,7 @@ fun BoxScoreTab(match: com.paperapps.paperscores.network.models.MatchDetails) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 8.dp),
+                .padding(bottom = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (match.homeTeam.imageUrl.isNotBlank()) {
@@ -197,33 +201,33 @@ fun BoxScoreTab(match: com.paperapps.paperscores.network.models.MatchDetails) {
                     model = match.homeTeam.imageUrl,
                     contentDescription = match.homeTeam.name,
                     modifier = Modifier
-                        .size(40.dp)
-                        .padding(end = 12.dp),
+                        .padding(end = 8.dp)
+                        .size(24.dp),
                     colorFilter = ColorFilter.colorMatrix(grayscaleMatrix)
                 )
             } else {
-                Spacer(modifier = Modifier.width(52.dp))
+                Spacer(modifier = Modifier.width(32.dp))
             }
 
-            Box(
-                modifier = Modifier
-                    .background(PureBlack)
-                    .padding(horizontal = 12.dp, vertical = 8.dp)
-            ) {
-                Text(match.homeTeam.name.uppercase(), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = PureWhite, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Row(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                Box(
+                    modifier = Modifier
+                        .background(PureBlack)
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                ) {
+                    Text(match.homeTeam.name.uppercase(), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = PureWhite, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
             }
-
-            Spacer(modifier = Modifier.weight(1f))
 
             if (match.score.home != null) {
                 Box(
                     modifier = Modifier
-                        .width(50.dp)
+                        .width(36.dp)
                         .background(PureBlack)
-                        .padding(vertical = 8.dp),
+                        .padding(vertical = 4.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("${match.score.home}", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = PureWhite)
+                    Text("${match.score.home}", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = PureWhite)
                 }
             }
         }
@@ -238,56 +242,105 @@ fun BoxScoreTab(match: com.paperapps.paperscores.network.models.MatchDetails) {
                     model = match.awayTeam.imageUrl,
                     contentDescription = match.awayTeam.name,
                     modifier = Modifier
-                        .size(40.dp)
-                        .padding(end = 12.dp),
+                        .padding(end = 8.dp)
+                        .size(24.dp),
                     colorFilter = ColorFilter.colorMatrix(grayscaleMatrix)
                 )
             } else {
-                Spacer(modifier = Modifier.width(52.dp))
+                Spacer(modifier = Modifier.width(32.dp))
             }
 
-            Box(
-                modifier = Modifier
-                    .background(PureBlack)
-                    .padding(horizontal = 12.dp, vertical = 8.dp)
-            ) {
-                Text(match.awayTeam.name.uppercase(), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = PureWhite, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Row(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                Box(
+                    modifier = Modifier
+                        .background(PureBlack)
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                ) {
+                    Text(match.awayTeam.name.uppercase(), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = PureWhite, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
             }
-
-            Spacer(modifier = Modifier.weight(1f))
 
             if (match.score.away != null) {
                 Box(
                     modifier = Modifier
-                        .width(50.dp)
+                        .width(36.dp)
                         .background(PureBlack)
-                        .padding(vertical = 8.dp),
+                        .padding(vertical = 4.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("${match.score.away}", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = PureWhite)
+                    Text("${match.score.away}", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = PureWhite)
                 }
             }
         }
 
         Spacer(modifier = Modifier.height(24.dp))
-        HorizontalDivider(thickness = 2.dp, color = PureBlack)
+
+        val filteredEvents = match.events.filter { it.type != "Half" }
 
         LazyColumn(modifier = Modifier.fillMaxSize()) {
-            items(match.events) { event ->
+            items(filteredEvents) { event ->
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(vertical = 12.dp),
-                    verticalAlignment = Alignment.Top
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("${event.timeStr}'", fontWeight = FontWeight.Bold, modifier = Modifier.width(40.dp))
+                    Text(
+                        text = buildAnnotatedString {
+                            val parts = event.timeStr.split("+")
+                            if (parts.size == 2) {
+                                append(parts[0])
+                                withStyle(style = SpanStyle(fontSize = 11.sp, fontWeight = FontWeight.Normal)) {
+                                    append("+${parts[1]}'")
+                                }
+                            } else {
+                                append("${event.timeStr}'")
+                            }
+                        },
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.width(48.dp)
+                    )
+
+                    Box(modifier = Modifier.width(32.dp), contentAlignment = Alignment.Center) {
+                        when (event.type) {
+                            "Goal" -> androidx.compose.material3.Icon(
+                                Icons.Default.SportsSoccer, 
+                                contentDescription = "Goal", 
+                                modifier = Modifier.size(20.dp)
+                            )
+                            "YellowCard", "RedCard", "Card" -> {
+                                val isRed = event.type == "RedCard" || event.nameStr.contains("Red", ignoreCase = true)
+                                Box(
+                                    modifier = Modifier
+                                        .size(14.dp, 20.dp)
+                                        .background(
+                                            color = if (isRed) PureBlack else PureWhite,
+                                            shape = RoundedCornerShape(2.dp)
+                                        )
+                                        .border(
+                                            width = if (isRed) 0.dp else 2.dp,
+                                            color = PureBlack,
+                                            shape = RoundedCornerShape(2.dp)
+                                        )
+                                )
+                            }
+                            "Substitution" -> androidx.compose.material3.Icon(
+                                Icons.Default.SwapHoriz, 
+                                contentDescription = "Substitution", 
+                                modifier = Modifier.size(20.dp)
+                            )
+                            "VAR" -> androidx.compose.material3.Icon(
+                                Icons.Default.Tv, 
+                                contentDescription = "VAR", 
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.width(8.dp))
 
                     Column(modifier = Modifier.weight(1f)) {
-                        val formattedType = event.type.replace(Regex("(?<=[a-z])(?=[A-Z])"), " ")
-                        Text(formattedType, fontWeight = FontWeight.Bold)
-
                         if (event.nameStr.isNotBlank()) {
-                            Spacer(modifier = Modifier.height(4.dp))
                             Text(event.nameStr, fontSize = 14.sp, color = PureBlack)
                         }
                     }
@@ -305,7 +358,11 @@ fun BoxScoreTab(match: com.paperapps.paperscores.network.models.MatchDetails) {
 
 @Composable
 fun StatsTab(match: com.paperapps.paperscores.network.models.MatchDetails) {
-    LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(vertical = 0.dp, horizontal = 16.dp),
+    ) {
         items(match.stats) { stat ->
             Row(
                 modifier = Modifier
@@ -329,7 +386,11 @@ fun StatsTab(match: com.paperapps.paperscores.network.models.MatchDetails) {
 
 @Composable
 fun LineupsTab(match: com.paperapps.paperscores.network.models.MatchDetails) {
-    Row(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+    Row(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(vertical = 0.dp, horizontal = 16.dp),
+    ) {
         // Home Lineup
         Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
             val hLineup = match.homeLineup
