@@ -36,10 +36,6 @@ fun TodaysGamesScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val selectedDate by viewModel.selectedDate.collectAsState()
 
-    LaunchedEffect(Unit) {
-        viewModel.refreshGames()
-    }
-
     Column(modifier = Modifier.fillMaxSize()) {
         val format = SimpleDateFormat("EEE, MMM d", Locale.getDefault())
         Row(

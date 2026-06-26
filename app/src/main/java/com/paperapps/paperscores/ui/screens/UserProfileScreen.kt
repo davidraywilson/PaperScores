@@ -5,7 +5,11 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.outlined.StarOutline
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextFieldDefaults
@@ -30,8 +34,15 @@ fun UserProfileScreen(
     val followedTournaments by viewModel.followedTournaments.collectAsState()
     val searchResults by viewModel.searchResults.collectAsState()
     val isSearching by viewModel.isSearching.collectAsState()
+    val isSearchBarVisible by viewModel.isSearchBarVisible.collectAsState()
     val teamFixtures by viewModel.teamFixtures.collectAsState()
     var teamSearchQuery by remember { mutableStateOf("") }
+
+    LaunchedEffect(isSearchBarVisible) {
+        if (!isSearchBarVisible) {
+            teamSearchQuery = ""
+        }
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
@@ -39,64 +50,96 @@ fun UserProfileScreen(
                 .fillMaxSize()
                 .padding(vertical = 0.dp, horizontal = 16.dp),
         ) {
-            item {
-                OutlinedTextField(
-                    value = teamSearchQuery,
-                    onValueChange = { 
-                        teamSearchQuery = it 
-                        viewModel.performSearch(it)
-                    },
-                    placeholder = { Text("search for a team or tournament") },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = TextFieldDefaults.colors(
-                        focusedContainerColor = PureWhite,
-                        unfocusedContainerColor = PureWhite,
-                        focusedIndicatorColor = PureBlack,
-                        unfocusedIndicatorColor = PureBlack,
-                        cursorColor = PureBlack
-                    ),
-                    singleLine = true
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-            }
-
-            if (isSearching) {
+            if (isSearchBarVisible) {
                 item {
-                    Text("searching...", fontSize = 14.sp, color = EInkGrey)
+                    OutlinedTextField(
+                        value = teamSearchQuery,
+                        onValueChange = { 
+                            teamSearchQuery = it 
+                            viewModel.performSearch(it)
+                        },
+                        placeholder = { Text("search for a team or tournament") },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = TextFieldDefaults.colors(
+                            focusedContainerColor = PureWhite,
+                            unfocusedContainerColor = PureWhite,
+                            focusedIndicatorColor = PureBlack,
+                            unfocusedIndicatorColor = PureBlack,
+                            cursorColor = PureBlack
+                        ),
+                        singleLine = true
+                    )
                     Spacer(modifier = Modifier.height(8.dp))
                 }
-            } else if (teamSearchQuery.isNotBlank() && searchResults.isNotEmpty()) {
-                items(searchResults) { result ->
-                    val name = when (result) {
-                        is SearchResult.TeamResult -> "${result.team.name} (Team)"
-                        is SearchResult.TournamentResult -> "${result.tournament.name} (Tournament)"
+
+                if (isSearching) {
+                    item {
+                        Text("searching...", fontSize = 14.sp, color = EInkGrey)
+                        Spacer(modifier = Modifier.height(8.dp))
                     }
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(name, fontSize = 16.sp, color = PureBlack)
-                        Box(
+                } else if (teamSearchQuery.isNotBlank() && searchResults.isNotEmpty()) {
+                    items(searchResults) { result ->
+                        val name = when (result) {
+                            is SearchResult.TeamResult -> result.team.name
+                            is SearchResult.TournamentResult -> result.tournament.name
+                        }
+                        val resultType = when (result) {
+                            is SearchResult.TeamResult -> "team"
+                            is SearchResult.TournamentResult -> "tournament"
+                        }
+                        val isFollowed = when (result) {
+                            is SearchResult.TeamResult -> followedTeams.any { it.id == result.team.id }
+                            is SearchResult.TournamentResult -> followedTournaments.any { it.id == result.tournament.id }
+                        }
+                        Row(
                             modifier = Modifier
-                                .background(PureBlack)
-                                .clickable {
-                                    viewModel.follow(result)
-                                    viewModel.clearSearch()
-                                    teamSearchQuery = ""
-                                }
-                                .padding(horizontal = 16.dp, vertical = 8.dp)
+                                .fillMaxWidth()
+                                .padding(vertical = 12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("follow", color = PureWhite, fontWeight = FontWeight.Bold)
+                            Column(
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text(
+                                    name,
+                                    fontSize = 16.sp,
+                                    color = PureBlack,
+                                    maxLines = 2,
+                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(resultType, fontSize = 12.sp, color = PureBlack)
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column(
+                                modifier = Modifier.weight(1f),
+                                horizontalAlignment = Alignment.End
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .clickable {
+                                            if (isFollowed) {
+                                                when (result) {
+                                                    is SearchResult.TeamResult -> viewModel.unfollowTeam(result.team.id)
+                                                    is SearchResult.TournamentResult -> viewModel.unfollowTournament(result.tournament.id)
+                                                }
+                                            } else {
+                                                viewModel.follow(result)
+                                            }
+                                        }
+                                ) {
+                                    Icon(
+                                        imageVector = if (isFollowed) Icons.Filled.Star else Icons.Outlined.StarOutline,
+                                        contentDescription = if (isFollowed) "Unfollow" else "Follow",
+                                        tint = PureBlack,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+                            }
                         }
                     }
-                }
-                item {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    HorizontalDivider(thickness = 2.dp, color = PureBlack)
-                    Spacer(modifier = Modifier.height(8.dp))
                 }
             } else if (teamSearchQuery.isNotBlank() && !isSearching) {
                 item {
@@ -105,53 +148,54 @@ fun UserProfileScreen(
                 }
             }
 
-            item {
-                Spacer(modifier = Modifier.height(24.dp))
-                Text("followed teams", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = PureBlack)
-                Spacer(modifier = Modifier.height(8.dp))
-            }
+            if (!isSearchBarVisible) {
+                item {
+                    Text("followed teams", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = PureBlack)
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
 
-            items(followedTeams.chunked(2)) { rowTeams ->
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    for (team in rowTeams) {
-                        TeamGridCard(
-                            team = team,
-                            nextMatch = teamFixtures[team.id],
-                            onUnfollow = { viewModel.unfollowTeam(team.id) },
-                            modifier = Modifier.weight(1f)
+                items(followedTeams.chunked(2)) { rowTeams ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        for (team in rowTeams) {
+                            TeamGridCard(
+                                team = team,
+                                nextMatch = teamFixtures[team.id],
+                                onUnfollow = { viewModel.unfollowTeam(team.id) },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                        if (rowTeams.size == 1) {
+                            Spacer(modifier = Modifier.weight(1f))
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+
+                item {
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Text("followed tournaments", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = PureBlack)
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+
+                items(followedTournaments) { tournament ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(tournament.name, fontSize = 16.sp, color = PureBlack)
+                        Text(
+                            text = "unfollow",
+                            color = PureBlack,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.clickable { viewModel.unfollowTournament(tournament.id) }.padding(8.dp)
                         )
                     }
-                    if (rowTeams.size == 1) {
-                        Spacer(modifier = Modifier.weight(1f))
-                    }
-                }
-                Spacer(modifier = Modifier.height(16.dp))
-            }
-
-            item {
-                Spacer(modifier = Modifier.height(24.dp))
-                Text("followed tournaments", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = PureBlack)
-                Spacer(modifier = Modifier.height(8.dp))
-            }
-
-            items(followedTournaments) { tournament ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(tournament.name, fontSize = 16.sp, color = PureBlack)
-                    Text(
-                        text = "unfollow",
-                        color = PureBlack,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.clickable { viewModel.unfollowTournament(tournament.id) }.padding(8.dp)
-                    )
                 }
             }
         }

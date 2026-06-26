@@ -28,6 +28,9 @@ class UserProfileViewModel : ViewModel() {
     private val _isSearching = MutableStateFlow(false)
     val isSearching: StateFlow<Boolean> = _isSearching.asStateFlow()
 
+    private val _isSearchBarVisible = MutableStateFlow(false)
+    val isSearchBarVisible: StateFlow<Boolean> = _isSearchBarVisible.asStateFlow()
+
     private var searchJob: Job? = null
 
     init {
@@ -55,6 +58,13 @@ class UserProfileViewModel : ViewModel() {
 
     fun clearSearch() {
         _searchResults.value = emptyList()
+    }
+
+    fun toggleSearchBar() {
+        _isSearchBarVisible.value = !_isSearchBarVisible.value
+        if (!_isSearchBarVisible.value) {
+            clearSearch()
+        }
     }
 
     fun follow(item: SearchResult) {

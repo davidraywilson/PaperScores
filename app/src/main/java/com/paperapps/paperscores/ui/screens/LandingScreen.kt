@@ -6,8 +6,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -21,18 +23,21 @@ import com.paperapps.paperscores.ui.components.AppbarAction
 import com.paperapps.paperscores.ui.components.ApplicationBar
 import com.paperapps.paperscores.ui.components.PanoramaHeader
 import com.paperapps.paperscores.ui.viewmodel.TodaysGamesViewModel
+import com.paperapps.paperscores.ui.viewmodel.UserProfileViewModel
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun LandingScreen(
     onGameClick: (String) -> Unit,
-    todaysGamesViewModel: TodaysGamesViewModel = viewModel()
+    todaysGamesViewModel: TodaysGamesViewModel = viewModel(),
+    userProfileViewModel: UserProfileViewModel = viewModel()
 ) {
     val pagerState = rememberPagerState(pageCount = { 2 })
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
     val isToday by todaysGamesViewModel.isToday.collectAsState()
+    val isSearchBarVisible by userProfileViewModel.isSearchBarVisible.collectAsState()
 
     Column(modifier = Modifier.fillMaxSize()) {
         Spacer(modifier = Modifier.height(48.dp)) // Top padding
@@ -54,7 +59,7 @@ fun LandingScreen(
         ) { page ->
             when (page) {
                 0 -> TodaysGamesScreen(onGameClick = onGameClick, viewModel = todaysGamesViewModel)
-                1 -> UserProfileScreen()
+                1 -> UserProfileScreen(viewModel = userProfileViewModel)
             }
         }
 
@@ -84,6 +89,18 @@ fun LandingScreen(
                 }
             )
         )
+        
+        if (pagerState.currentPage == 1) {
+            actions.add(
+                AppbarAction(
+                    icon = if (isSearchBarVisible) Icons.Filled.Close else Icons.Filled.Search,
+                    label = if (isSearchBarVisible) "Close" else "Search",
+                    onClick = {
+                        userProfileViewModel.toggleSearchBar()
+                    }
+                )
+            )
+        }
 
         ApplicationBar(
             actions = actions

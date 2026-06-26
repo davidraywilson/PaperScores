@@ -110,7 +110,7 @@ class SoccerRepository private constructor(private val dao: SoccerDao) {
         
         val localDateOnlyFormat = SimpleDateFormat("yyyyMMdd", Locale.US)
         localDateOnlyFormat.timeZone = TimeZone.getDefault()
-        val actualLocalTodayStr = localDateOnlyFormat.format(Date())
+        val targetLocalStr = localDateOnlyFormat.format(date ?: Date())
 
         val parsedMatches = mutableListOf<MatchDetails>()
         val seenMatchIds = mutableSetOf<String>()
@@ -173,7 +173,7 @@ class SoccerRepository private constructor(private val dao: SoccerDao) {
                             }
                         }
 
-                        if (matchLocalDateStr.isNotEmpty() && matchLocalDateStr != actualLocalTodayStr) {
+                        if (matchLocalDateStr.isNotEmpty() && matchLocalDateStr != targetLocalStr) {
                             continue
                         }
                         
