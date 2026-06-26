@@ -70,7 +70,7 @@ fun TodaysGamesScreen(
         }
 
         Box(modifier = Modifier.fillMaxSize().weight(1f)) {
-            if (isLoading) {
+            if (isLoading && todaysGames.isEmpty()) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()

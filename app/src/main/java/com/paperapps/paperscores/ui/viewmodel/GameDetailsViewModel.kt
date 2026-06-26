@@ -15,10 +15,42 @@ class GameDetailsViewModel : ViewModel() {
     private val _matchDetails = MutableStateFlow<MatchDetails?>(null)
     val matchDetails: StateFlow<MatchDetails?> = _matchDetails.asStateFlow()
 
+    private val _isLoading = MutableStateFlow(false)
+    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+
+    private var pollingJob: kotlinx.coroutines.Job? = null
+
     fun loadMatchDetails(matchId: String) {
+        pollingJob?.cancel()
         viewModelScope.launch {
-            _matchDetails.value = null
-            _matchDetails.value = repository.getMatchDetails(matchId)
+            _isLoading.value = true
+            val details = repository.getMatchDetails(matchId)
+            _matchDetails.value = details
+            _isLoading.value = false
+            
+            if (details != null && details.status != "Finished") {
+                startPolling(matchId)
+            }
         }
+    }
+
+    private fun startPolling(matchId: String) {
+        pollingJob = viewModelScope.launch {
+            while (true) {
+                kotlinx.coroutines.delay(60_000L)
+                _isLoading.value = true
+                val newDetails = repository.getMatchDetails(matchId, forceRefresh = true)
+                _matchDetails.value = newDetails
+                _isLoading.value = false
+                if (newDetails?.status == "Finished" || newDetails == null) {
+                    break
+                }
+            }
+        }
+    }
+    
+    override fun onCleared() {
+        super.onCleared()
+        pollingJob?.cancel()
     }
 }

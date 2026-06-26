@@ -31,6 +31,14 @@ import java.util.Calendar
 val JsonElement.jsonObjectOrNull: JsonObject? get() = if (this is JsonObject) this else null
 val JsonElement.jsonArrayOrNull: kotlinx.serialization.json.JsonArray? get() = if (this is kotlinx.serialization.json.JsonArray) this else null
 class FotMobApiClient {
+    data class CacheEntry<T>(
+        val data: T,
+        val timestamp: Long
+    )
+    
+    private val matchesByDateCache = mutableMapOf<String, CacheEntry<String>>()
+    private val matchDetailsCache = mutableMapOf<String, CacheEntry<MatchDetails>>()
+
     private val client = HttpClient(Android) {
         install(ContentNegotiation) {
             json(Json {
@@ -43,7 +51,24 @@ class FotMobApiClient {
 
     private val baseUrl = "https://www.fotmob.com/api"
 
-    suspend fun getMatchDetails(matchId: String): MatchDetails? {
+    suspend fun getMatchDetails(matchId: String, forceRefresh: Boolean = false): MatchDetails? {
+        if (!forceRefresh) {
+            val cached = matchDetailsCache[matchId]
+            if (cached != null) {
+                val now = System.currentTimeMillis()
+                val age = now - cached.timestamp
+                val status = cached.data.status
+                val isFinished = status == "Finished" || status == "FT" || status == "AET" || status == "Pen"
+                val isUpcoming = status == "Upcoming"
+                if (isFinished && age < 24 * 60 * 60 * 1000L) {
+                    return cached.data
+                } else if (isUpcoming && age < 5 * 60 * 1000L) {
+                    return cached.data
+                } else if (!isFinished && !isUpcoming && age < 60 * 1000L) {
+                    return cached.data
+                }
+            }
+        }
         return try {
             val response = client.get("https://www.fotmob.com/match/$matchId?_=${System.currentTimeMillis()}") {
                 header(io.ktor.http.HttpHeaders.CacheControl, "no-cache")
@@ -243,7 +268,7 @@ class FotMobApiClient {
                     val homeLineup = parseLineup(lineupObj?.get("homeTeam")?.jsonObjectOrNull)
                     val awayLineup = parseLineup(lineupObj?.get("awayTeam")?.jsonObjectOrNull)
                     
-                    return MatchDetails(
+                    val details = MatchDetails(
                         matchId = matchId,
                         homeTeam = homeTeam,
                         awayTeam = awayTeam,
@@ -258,6 +283,8 @@ class FotMobApiClient {
                         homeLineup = homeLineup,
                         awayLineup = awayLineup
                     )
+                    matchDetailsCache[matchId] = CacheEntry(details, System.currentTimeMillis())
+                    return details
                 }
             }
             null
@@ -276,11 +303,31 @@ class FotMobApiClient {
         }
     }
 
-    suspend fun getMatchesByDate(date: String): String? {
+    suspend fun getMatchesByDate(date: String, forceRefresh: Boolean = false): String? {
+        if (!forceRefresh) {
+            val cached = matchesByDateCache[date]
+            if (cached != null) {
+                val format = java.text.SimpleDateFormat("yyyyMMdd", java.util.Locale.US)
+                format.timeZone = java.util.TimeZone.getDefault()
+                val todayStr = format.format(java.util.Date())
+                val age = System.currentTimeMillis() - cached.timestamp
+                val dateInt = date.toIntOrNull() ?: 0
+                val todayInt = todayStr.toIntOrNull() ?: 0
+                if (dateInt < todayInt && age < 24 * 60 * 60 * 1000L) {
+                    return cached.data
+                } else if (dateInt > todayInt && age < 2 * 60 * 60 * 1000L) {
+                    return cached.data
+                } else if (dateInt == todayInt && age < 60 * 1000L) {
+                    return cached.data
+                }
+            }
+        }
         return try {
-            client.get("https://apigw.fotmob.com/matches?date=$date&_=${System.currentTimeMillis()}") {
+            val result: String = client.get("https://apigw.fotmob.com/matches?date=$date&_=${System.currentTimeMillis()}") {
                 header(io.ktor.http.HttpHeaders.CacheControl, "no-cache")
             }.body()
+            matchesByDateCache[date] = CacheEntry(result, System.currentTimeMillis())
+            result
         } catch (e: Exception) {
             e.printStackTrace()
             null

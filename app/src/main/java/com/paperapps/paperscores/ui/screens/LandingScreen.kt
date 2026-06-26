@@ -38,6 +38,7 @@ fun LandingScreen(
     val context = LocalContext.current
     val isToday by todaysGamesViewModel.isToday.collectAsState()
     val isSearchBarVisible by userProfileViewModel.isSearchBarVisible.collectAsState()
+    val isLoading by todaysGamesViewModel.isLoading.collectAsState()
 
     Column(modifier = Modifier.fillMaxSize()) {
         Spacer(modifier = Modifier.height(48.dp)) // Top padding
@@ -81,11 +82,10 @@ fun LandingScreen(
             AppbarAction(
                 icon = Icons.Filled.Refresh,
                 label = "Refresh",
+                isLoading = isLoading,
                 onClick = {
                     Toast.makeText(context, "Refreshing...", Toast.LENGTH_SHORT).show()
-                    coroutineScope.launch {
-                        SoccerRepository.getInstance().refreshTodaysGames(todaysGamesViewModel.selectedDate.value)
-                    }
+                    todaysGamesViewModel.refreshGames(forceRefresh = true)
                 }
             )
         )

@@ -22,6 +22,7 @@ import com.paperapps.paperscores.theme.PureWhite
 data class AppbarAction(
     val icon: ImageVector,
     val label: String,
+    val isLoading: Boolean = false,
     val onClick: () -> Unit
 )
 
@@ -59,18 +60,26 @@ fun ApplicationBar(
                         Box(
                             modifier = Modifier
                                 .size(40.dp)
-                                .clickable {
+                                .clickable(enabled = !action.isLoading) {
                                     action.onClick()
                                     expanded = false
                                 },
                             contentAlignment = Alignment.Center
                         ) {
-                            Icon(
-                                imageVector = action.icon,
-                                contentDescription = action.label,
-                                tint = PureBlack,
-                                modifier = Modifier.size(24.dp)
-                            )
+                            if (action.isLoading) {
+                                androidx.compose.material3.CircularProgressIndicator(
+                                    modifier = Modifier.size(24.dp),
+                                    color = PureBlack,
+                                    strokeWidth = 2.dp
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = action.icon,
+                                    contentDescription = action.label,
+                                    tint = PureBlack,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
                         }
                         if (expanded) {
                             Spacer(modifier = Modifier.height(4.dp))

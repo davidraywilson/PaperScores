@@ -76,7 +76,7 @@ class SoccerRepository private constructor(private val dao: SoccerDao) {
         return regex.find(block)?.groupValues?.get(1)
     }
 
-    suspend fun refreshTodaysGames(date: Date? = null) = coroutineScope {
+    suspend fun refreshTodaysGames(date: Date? = null, forceRefresh: Boolean = false) = coroutineScope {
         _isLoadingTodaysGames.value = true
         val format = SimpleDateFormat("yyyyMMdd", Locale.getDefault())
         val calendar = Calendar.getInstance()
@@ -90,9 +90,9 @@ class SoccerRepository private constructor(private val dao: SoccerDao) {
         val tomorrowStr = format.format(calendar.time)
 
         val deferreds = listOf(
-            async { apiClient.getMatchesByDate(yesterdayStr) },
-            async { apiClient.getMatchesByDate(todayStr) },
-            async { apiClient.getMatchesByDate(tomorrowStr) }
+            async { apiClient.getMatchesByDate(yesterdayStr, forceRefresh) },
+            async { apiClient.getMatchesByDate(todayStr, forceRefresh) },
+            async { apiClient.getMatchesByDate(tomorrowStr, forceRefresh) }
         )
         
         val responses = deferreds.awaitAll().filterNotNull()
@@ -230,26 +230,7 @@ class SoccerRepository private constructor(private val dao: SoccerDao) {
                 }
             }
             
-            // Patch live games with accurate status and score from details endpoint
-            val liveMatches = parsedMatches.filter { it.status !in listOf("Finished", "Upcoming", "Postponed", "Cancelled", "Abandoned") }
-            if (liveMatches.isNotEmpty()) {
-                val detailsDeferred = liveMatches.map { match ->
-                    async { apiClient.getMatchDetails(match.matchId) }
-                }
-                val liveDetails = detailsDeferred.awaitAll().filterNotNull()
-                for (detail in liveDetails) {
-                    val idx = parsedMatches.indexOfFirst { it.matchId == detail.matchId }
-                    if (idx != -1) {
-                        parsedMatches[idx] = parsedMatches[idx].copy(
-                            status = if (detail.status !in listOf("Active", "Upcoming", "Finished")) detail.status else parsedMatches[idx].status,
-                            matchTime = if (detail.status !in listOf("Active", "Upcoming", "Finished")) detail.status else parsedMatches[idx].matchTime,
-                            liveTime = if (detail.liveTime.isNotBlank()) detail.liveTime else parsedMatches[idx].liveTime,
-                            score = detail.score,
-                            tournamentName = if (detail.tournamentName.isNotBlank()) detail.tournamentName else parsedMatches[idx].tournamentName
-                        )
-                    }
-                }
-            }
+            // Removed mass scraping of live match details for performance
 
             _rawTodaysGames.value = parsedMatches
         } catch (e: Exception) {
@@ -259,16 +240,11 @@ class SoccerRepository private constructor(private val dao: SoccerDao) {
         _isLoadingTodaysGames.value = false
     }
 
-    suspend fun getMatchDetails(matchId: String): MatchDetails? {
-        val details = apiClient.getMatchDetails(matchId)
+    suspend fun getMatchDetails(matchId: String, forceRefresh: Boolean = false): MatchDetails? {
+        val details = apiClient.getMatchDetails(matchId, forceRefresh)
         
         // Find if this is a today's game
         var todayMatch = _rawTodaysGames.value.find { it.matchId == matchId }
-        
-        // Always refresh today's games if we are looking at a match to ensure it's up to date
-        // (Even if todayMatch is null initially, it might just have started)
-        refreshTodaysGames()
-        todayMatch = _rawTodaysGames.value.find { it.matchId == matchId }
         
         if (todayMatch != null && details != null) {
             // Overwrite with todayMatch's status if it's more specific, but keep details score

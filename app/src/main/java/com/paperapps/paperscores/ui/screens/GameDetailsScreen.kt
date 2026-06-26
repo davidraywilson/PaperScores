@@ -47,6 +47,7 @@ fun GameDetailsScreen(
     viewModel: GameDetailsViewModel = viewModel()
 ) {
     val matchDetails by viewModel.matchDetails.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
     val pagerState = rememberPagerState(pageCount = { 3 })
     val coroutineScope = rememberCoroutineScope()
 
@@ -104,6 +105,7 @@ fun GameDetailsScreen(
                 AppbarAction(
                     icon = Icons.Filled.Refresh,
                     label = "Refresh",
+                    isLoading = isLoading,
                     onClick = { viewModel.loadMatchDetails(matchId) }
                 ),
                 AppbarAction(

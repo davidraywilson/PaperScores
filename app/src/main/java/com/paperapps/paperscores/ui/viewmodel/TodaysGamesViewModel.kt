@@ -26,10 +26,30 @@ class TodaysGamesViewModel : ViewModel() {
         refreshGames()
     }
 
-    fun refreshGames() {
+    private var pollingJob: kotlinx.coroutines.Job? = null
+
+    fun refreshGames(forceRefresh: Boolean = false) {
+        pollingJob?.cancel()
         viewModelScope.launch {
-            repository.refreshTodaysGames(_selectedDate.value)
+            repository.refreshTodaysGames(_selectedDate.value, forceRefresh)
+            if (_isToday.value) {
+                startPolling()
+            }
         }
+    }
+
+    private fun startPolling() {
+        pollingJob = viewModelScope.launch {
+            while (true) {
+                kotlinx.coroutines.delay(60_000L)
+                repository.refreshTodaysGames(_selectedDate.value, forceRefresh = true)
+            }
+        }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        pollingJob?.cancel()
     }
 
     private fun checkIfToday() {
