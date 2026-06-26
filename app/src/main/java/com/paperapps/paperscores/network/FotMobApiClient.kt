@@ -112,14 +112,16 @@ class FotMobApiClient {
                     
                     val isFinished = statusObj?.get("finished")?.toString()?.toBoolean() ?: false
                     val isStarted = statusObj?.get("started")?.toString()?.toBoolean() ?: true
-                    
                     val liveTimeObj = statusObj?.get("liveTime")?.jsonObjectOrNull
                     val liveTimeShort = liveTimeObj?.get("short")?.toString()?.trim('"')
                     
                     val reasonObj = statusObj?.get("reason")?.jsonObjectOrNull
                     val reasonShort = reasonObj?.get("short")?.toString()?.trim('"')
-                    
-                    val liveTimeStr = liveTimeShort ?: reasonShort ?: ""
+                    val liveTimeStr = when (reasonShort) {
+                        "HT", "Half-Time" -> "HT"
+                        "Postp", "Postponed", "Del", "Delayed", "Dly", "Canc", "Cancelled", "Int", "Interrupted" -> ""
+                        else -> liveTimeShort ?: reasonShort ?: ""
+                    }
                     
                     val matchTimeUTC = general["matchTimeUTC"]?.toString()?.trim('"') ?: ""
                     

@@ -195,13 +195,13 @@ class SoccerRepository private constructor(private val dao: SoccerDao) {
                                     val parsedShs = tzFormat.parse(shs)
                                     if (parsedShs != null) {
                                         val diff = Math.max(0, (now - parsedShs.time) / 60000)
-                                        liveMinute = "${45 + diff}'"
+                                        liveMinute = if (diff >= 45) "90+'" else "${45 + diff}'"
                                     }
                                 } else if (gs != null) {
                                     val parsedGs = tzFormat.parse(gs)
                                     if (parsedGs != null) {
                                         val diff = Math.max(0, (now - parsedGs.time) / 60000)
-                                        liveMinute = "${diff}'"
+                                        liveMinute = if (diff >= 45) "45+'" else "${diff}'"
                                     }
                                 }
                             } catch (e: Exception) {
