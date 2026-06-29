@@ -43,7 +43,38 @@ data class MatchDetails(
     val events: List<MatchEvent> = emptyList(),
     val stats: List<MatchStat> = emptyList(),
     val homeLineup: TeamLineup? = null,
-    val awayLineup: TeamLineup? = null
+    val awayLineup: TeamLineup? = null,
+    val tableUrl: String? = null,
+    val leagueId: String? = null,
+    val startTimeMs: Long? = null
+)
+
+@Serializable
+data class PlayoffRound(
+    val roundName: String,
+    val matchups: List<PlayoffMatchup>
+)
+
+@Serializable
+data class PlayoffMatchup(
+    val homeTeam: String,
+    val awayTeam: String,
+    val homeScore: String,
+    val awayScore: String,
+    val winner: String?
+)
+
+@Serializable
+data class TableEntry(
+    val id: String,
+    val name: String,
+    val played: Int,
+    val wins: Int,
+    val draws: Int,
+    val losses: Int,
+    val goalsFor: Int,
+    val goalsAgainst: Int,
+    val points: Int
 )
 
 @Serializable

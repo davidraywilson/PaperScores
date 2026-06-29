@@ -126,6 +126,7 @@ class FotMobApiClient {
                     val matchTimeUTC = general["matchTimeUTC"]?.toString()?.trim('"') ?: ""
                     
                     val leagueName = general["leagueName"]?.toString()?.trim('"') ?: general["parentLeagueName"]?.toString()?.trim('"') ?: ""
+                    val leagueIdStr = general["parentLeagueId"]?.toString()?.trim('"') ?: general["leagueId"]?.toString()?.trim('"')
                     val stadiumObj = general["stadium"]?.jsonObjectOrNull
                     val stadiumName = stadiumObj?.get("name")?.toString()?.trim('"') ?: ""
                     
@@ -270,6 +271,9 @@ class FotMobApiClient {
                     val homeLineup = parseLineup(lineupObj?.get("homeTeam")?.jsonObjectOrNull)
                     val awayLineup = parseLineup(lineupObj?.get("awayTeam")?.jsonObjectOrNull)
                     
+                    val tableObj = content?.get("table")?.jsonObjectOrNull
+                    val tableUrl = tableObj?.get("url")?.toString()?.trim('"')?.takeIf { it != "null" && it.isNotBlank() }
+
                     val details = MatchDetails(
                         matchId = matchId,
                         homeTeam = homeTeam,
@@ -283,7 +287,9 @@ class FotMobApiClient {
                         events = eventsList,
                         stats = statsList,
                         homeLineup = homeLineup,
-                        awayLineup = awayLineup
+                        awayLineup = awayLineup,
+                        tableUrl = tableUrl,
+                        leagueId = leagueIdStr
                     )
                     matchDetailsCache[matchId] = CacheEntry(details, System.currentTimeMillis())
                     return details
@@ -293,6 +299,217 @@ class FotMobApiClient {
         } catch (e: Exception) {
             e.printStackTrace()
             null
+        }
+    }
+
+    suspend fun getTeamDetails(teamId: String): com.paperapps.paperscores.network.models.TeamDetails? {
+        return kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                val response = client.get("https://www.fotmob.com/teams/$teamId") {
+                    header(io.ktor.http.HttpHeaders.CacheControl, "no-cache")
+                }
+                val text = response.bodyAsText()
+                val regex = """<script id="__NEXT_DATA__" type="application/json">(.*?)</script>""".toRegex(RegexOption.DOT_MATCHES_ALL)
+                val match = regex.find(text)
+                if (match != null) {
+                    val jsonString = match.groupValues[1]
+                    val jsonObject = Json { ignoreUnknownKeys = true }.parseToJsonElement(jsonString).jsonObjectOrNull
+                    val pageProps = jsonObject?.get("props")?.jsonObjectOrNull?.get("pageProps")?.jsonObjectOrNull
+                    val fallback = pageProps?.get("fallback")?.jsonObjectOrNull
+                    val teamData = fallback?.get("team-$teamId")?.jsonObjectOrNull ?: return@withContext null
+
+                    val detailsObj = teamData["details"]?.jsonObjectOrNull
+                    val name = detailsObj?.get("name")?.toString()?.trim('"') ?: ""
+                    val country = detailsObj?.get("country")?.toString()?.trim('"') ?: ""
+                    val primaryLeagueName = detailsObj?.get("primaryLeagueName")?.toString()?.trim('"') ?: ""
+
+                    val fixturesObj = teamData["fixtures"]?.jsonObjectOrNull
+                    val allFixturesObj = fixturesObj?.get("allFixtures")?.jsonObjectOrNull
+                    val fixturesArray = allFixturesObj?.get("fixtures")?.jsonArrayOrNull ?: kotlinx.serialization.json.JsonArray(emptyList())
+
+                    val fixturesList = mutableListOf<MatchDetails>()
+                    fixturesArray.forEach { fixtureEl ->
+                        val fixtureObj = fixtureEl.jsonObjectOrNull
+                        if (fixtureObj != null) {
+                            val matchId = fixtureObj["id"]?.toString() ?: ""
+                            val homeObj = fixtureObj["home"]?.jsonObjectOrNull
+                            val homeTeam = Team(
+                                id = homeObj?.get("id")?.toString() ?: "",
+                                name = homeObj?.get("name")?.toString()?.trim('"') ?: "",
+                                imageUrl = "https://images.fotmob.com/image_resources/logo/teamlogo/${homeObj?.get("id")?.toString()}.png"
+                            )
+                            val awayObj = fixtureObj["away"]?.jsonObjectOrNull
+                            val awayTeam = Team(
+                                id = awayObj?.get("id")?.toString() ?: "",
+                                name = awayObj?.get("name")?.toString()?.trim('"') ?: "",
+                                imageUrl = "https://images.fotmob.com/image_resources/logo/teamlogo/${awayObj?.get("id")?.toString()}.png"
+                            )
+
+                            val statusObj = fixtureObj["status"]?.jsonObjectOrNull
+                            val scoreStr = statusObj?.get("scoreStr")?.toString()?.trim('"') ?: ""
+                            val isFinished = statusObj?.get("finished")?.toString()?.toBoolean() ?: false
+                            val isStarted = statusObj?.get("started")?.toString()?.toBoolean() ?: false
+                            val utcTime = statusObj?.get("utcTime")?.toString()?.trim('"') ?: ""
+                            val reasonShort = statusObj?.get("reason")?.jsonObjectOrNull?.get("short")?.toString()?.trim('"')
+                            
+                            val scores = scoreStr.split(" - ")
+                            val homeScore = scores.getOrNull(0)?.trim()?.toIntOrNull() ?: 0
+                            val awayScore = scores.getOrNull(1)?.trim()?.toIntOrNull() ?: 0
+                            val score = com.paperapps.paperscores.network.models.Score(homeScore, awayScore)
+
+                            val tournamentObj = fixtureObj["tournament"]?.jsonObjectOrNull
+                            val tournamentName = tournamentObj?.get("name")?.toString()?.trim('"') ?: ""
+                            val tournamentLeagueId = tournamentObj?.get("leagueId")?.toString()?.trim('"')
+
+                            val matchDetails = MatchDetails(
+                                matchId = matchId,
+                                homeTeam = homeTeam,
+                                awayTeam = awayTeam,
+                                score = if (!isStarted) com.paperapps.paperscores.network.models.Score(null, null) else score,
+                                status = if (isFinished) "Finished" else if (!isStarted) "Upcoming" else if (!reasonShort.isNullOrBlank() && reasonShort !in listOf("HT", "FT", "Pen", "AET", "Half-Time", "Full-Time")) reasonShort else "Active",
+                                matchTime = utcTime,
+                                liveTime = reasonShort ?: "",
+                                tournamentName = tournamentName,
+                                stadiumName = "",
+                                events = emptyList(),
+                                stats = emptyList(),
+                                homeLineup = null,
+                                awayLineup = null,
+                                tableUrl = null,
+                                leagueId = tournamentLeagueId
+                            )
+                            fixturesList.add(matchDetails)
+                        }
+                    }
+                    
+                    val overviewObj = teamData["overview"]?.jsonObjectOrNull
+                    val teamFormList = mutableListOf<com.paperapps.paperscores.network.models.TeamForm>()
+                    overviewObj?.get("teamForm")?.jsonArrayOrNull?.forEach { formEl ->
+                        val formObj = formEl.jsonObjectOrNull
+                        if (formObj != null) {
+                            teamFormList.add(
+                                com.paperapps.paperscores.network.models.TeamForm(
+                                    result = formObj["result"]?.toString()?.trim('"') ?: "",
+                                    resultString = formObj["resultString"]?.toString()?.trim('"') ?: "",
+                                    score = formObj["score"]?.toString()?.trim('"') ?: "",
+                                    tooltipText = formObj["tooltipText"]?.toString()?.trim('"') ?: "",
+                                    imageUrl = formObj["imageUrl"]?.toString()?.trim('"') ?: ""
+                                )
+                            )
+                        }
+                    }
+
+                    val nextMatchObj = overviewObj?.get("nextMatch")?.jsonObjectOrNull
+                    val nextMatch = nextMatchObj?.let {
+                        val opponentObj = it["opponent"]?.jsonObjectOrNull
+                        com.paperapps.paperscores.network.models.NextMatch(
+                            id = it["id"]?.toString() ?: "",
+                            opponentName = opponentObj?.get("name")?.toString()?.trim('"') ?: "",
+                            isHome = it["home"]?.toString()?.toBoolean() ?: false,
+                            date = it["status"]?.jsonObjectOrNull?.get("utcTime")?.toString()?.trim('"') 
+                                ?: it["status"]?.jsonObjectOrNull?.get("startDateStr")?.toString()?.trim('"') 
+                                ?: "",
+                            tournamentName = it["tournament"]?.jsonObjectOrNull?.get("name")?.toString()?.trim('"') ?: ""
+                        )
+                    }
+
+                    val tableList = mutableListOf<com.paperapps.paperscores.network.models.TableEntry>()
+                    val tableArray = teamData["table"]?.jsonArrayOrNull ?: overviewObj?.get("table")?.jsonArrayOrNull
+                    if (tableArray != null && tableArray.isNotEmpty()) {
+                        val tableData = tableArray[0].jsonObjectOrNull?.get("data")?.jsonObjectOrNull
+                        
+                        val allTables = mutableListOf<kotlinx.serialization.json.JsonArray>()
+                        val isComposite = tableData?.get("composite")?.jsonPrimitive?.booleanOrNull == true
+                        
+                        if (isComposite) {
+                            tableData?.get("tables")?.jsonArrayOrNull?.forEach { t ->
+                                val all = t.jsonObjectOrNull?.get("table")?.jsonObjectOrNull?.get("all")?.jsonArrayOrNull
+                                if (all != null) allTables.add(all)
+                            }
+                        } else {
+                            val all = tableData?.get("table")?.jsonObjectOrNull?.get("all")?.jsonArrayOrNull
+                            if (all != null) allTables.add(all)
+                        }
+
+                        val targetTable = allTables.find { jsonArray ->
+                            jsonArray.any { entryEl ->
+                                val idStr = entryEl.jsonObjectOrNull?.get("id")?.toString()?.trim('"')
+                                idStr == teamId
+                            }
+                        } ?: allTables.firstOrNull()
+
+                        targetTable?.forEach { entryEl ->
+                            val entryObj = entryEl.jsonObjectOrNull
+                            if (entryObj != null) {
+                                val scoresStr = entryObj["scoresStr"]?.toString()?.trim('"') ?: ""
+                                val scores = scoresStr.split("-")
+                                val goalsFor = scores.getOrNull(0)?.toIntOrNull() ?: 0
+                                val goalsAgainst = scores.getOrNull(1)?.toIntOrNull() ?: 0
+                                tableList.add(
+                                    com.paperapps.paperscores.network.models.TableEntry(
+                                        id = entryObj["id"]?.toString()?.trim('"') ?: "",
+                                        name = entryObj["name"]?.toString()?.trim('"') ?: "",
+                                        played = entryObj["played"]?.toString()?.toIntOrNull() ?: 0,
+                                        wins = entryObj["wins"]?.toString()?.toIntOrNull() ?: 0,
+                                        draws = entryObj["draws"]?.toString()?.toIntOrNull() ?: 0,
+                                        losses = entryObj["losses"]?.toString()?.toIntOrNull() ?: 0,
+                                        goalsFor = goalsFor,
+                                        goalsAgainst = goalsAgainst,
+                                        points = entryObj["pts"]?.toString()?.toIntOrNull() ?: 0
+                                    )
+                                )
+                            }
+                        }
+                    }
+
+                    val squadSections = mutableListOf<com.paperapps.paperscores.network.models.SquadSection>()
+                    val squadObj = teamData["squad"]?.jsonObjectOrNull
+                    val squadList = squadObj?.get("squad")?.jsonArrayOrNull
+                    squadList?.forEach { sectionEl ->
+                        val sectionObj = sectionEl.jsonObjectOrNull
+                        if (sectionObj != null) {
+                            val title = sectionObj["title"]?.toString()?.trim('"') ?: ""
+                            val membersList = mutableListOf<com.paperapps.paperscores.network.models.SquadMember>()
+                            sectionObj["members"]?.jsonArrayOrNull?.forEach { memberEl ->
+                                val memberObj = memberEl.jsonObjectOrNull
+                                if (memberObj != null) {
+                                    membersList.add(
+                                        com.paperapps.paperscores.network.models.SquadMember(
+                                            id = memberObj["id"]?.toString() ?: "",
+                                            name = memberObj["name"]?.toString()?.trim('"') ?: "",
+                                            shirtNumber = memberObj["shirtNumber"]?.toString()?.toIntOrNull(),
+                                            role = memberObj["role"]?.toString()?.trim('"') ?: "",
+                                            ccode = memberObj["ccode"]?.toString()?.trim('"')
+                                        )
+                                    )
+                                }
+                            }
+                            squadSections.add(
+                                com.paperapps.paperscores.network.models.SquadSection(
+                                    title = title,
+                                    members = membersList
+                                )
+                            )
+                        }
+                    }
+
+                    return@withContext com.paperapps.paperscores.network.models.TeamDetails(
+                        id = teamId,
+                        name = name,
+                        country = country,
+                        primaryLeagueName = primaryLeagueName,
+                        fixtures = fixturesList,
+                        teamForm = teamFormList,
+                        nextMatch = nextMatch,
+                        table = tableList.ifEmpty { null },
+                        squad = squadSections
+                    )
+                }
+                null
+            } catch (e: Exception) {
+                e.printStackTrace()
+                null
+            }
         }
     }
 
@@ -424,6 +641,109 @@ class FotMobApiClient {
         } catch (e: Exception) {
             e.printStackTrace()
             null
+        }
+    }
+
+    suspend fun getLeagueTable(url: String): List<com.paperapps.paperscores.network.models.TableEntry>? {
+        return kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                val absoluteUrl = if (url.startsWith("/")) "https://www.fotmob.com$url" else url
+                android.util.Log.d("FotMobApiClient", "Fetching table from $absoluteUrl")
+                val response = client.get(absoluteUrl) {
+                    header(io.ktor.http.HttpHeaders.CacheControl, "no-cache")
+                }
+                val bytes = response.body<ByteArray>()
+                android.util.Log.d("FotMobApiClient", "Fetched ${bytes.size} bytes")
+                val text = try {
+                    java.util.zip.GZIPInputStream(java.io.ByteArrayInputStream(bytes)).bufferedReader().use { it.readText() }
+                } catch (e: Exception) {
+                    String(bytes)
+                }
+                
+                val regex = """<t name="([^"]+)" id="([^"]+)" p="([^"]+)" w="([^"]+)" d="([^"]+)" l="([^"]+)" g="([^"]+)" c="([^"]+)"(.*?)/>""".toRegex()
+                val matchResults = regex.findAll(text)
+                val tableList = matchResults.map {
+                    val wins = it.groupValues[4].toIntOrNull() ?: 0
+                    val draws = it.groupValues[5].toIntOrNull() ?: 0
+                    val losses = it.groupValues[6].toIntOrNull() ?: 0
+                    com.paperapps.paperscores.network.models.TableEntry(
+                        name = it.groupValues[1],
+                        id = it.groupValues[2],
+                        points = it.groupValues[3].toIntOrNull() ?: 0,
+                        wins = wins,
+                        draws = draws,
+                        losses = losses,
+                        goalsFor = it.groupValues[7].toIntOrNull() ?: 0,
+                        goalsAgainst = it.groupValues[8].toIntOrNull() ?: 0,
+                        played = wins + draws + losses
+                    )
+                }.toList()
+                android.util.Log.d("FotMobApiClient", "Parsed ${tableList.size} table entries")
+                tableList
+            } catch (e: Exception) {
+                android.util.Log.e("FotMobApiClient", "Failed to fetch or parse table", e)
+                e.printStackTrace()
+                null
+            }
+        }
+    }
+
+    suspend fun getPlayoffBracket(leagueId: String): List<com.paperapps.paperscores.network.models.PlayoffRound>? {
+        return kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                val response = client.get("https://www.fotmob.com/leagues/$leagueId?_=${System.currentTimeMillis()}") {
+                    header(io.ktor.http.HttpHeaders.CacheControl, "no-cache")
+                }
+                val text = response.bodyAsText()
+                val regex = """<script id="__NEXT_DATA__" type="application/json">(.*?)</script>""".toRegex(RegexOption.DOT_MATCHES_ALL)
+                val match = regex.find(text)
+                if (match != null) {
+                    val jsonString = match.groupValues[1]
+                    val jsonObject = Json { ignoreUnknownKeys = true }.parseToJsonElement(jsonString).jsonObjectOrNull
+                    val pageProps = jsonObject?.get("props")?.jsonObjectOrNull?.get("pageProps")?.jsonObjectOrNull
+                    
+                    val playoffObj = pageProps?.get("playoff")?.jsonObjectOrNull ?: return@withContext null
+                    val roundsArray = playoffObj["rounds"]?.jsonArrayOrNull ?: return@withContext null
+                    
+                    val playoffRounds = mutableListOf<com.paperapps.paperscores.network.models.PlayoffRound>()
+                    roundsArray.forEach { roundEl ->
+                        val roundObj = roundEl.jsonObjectOrNull ?: return@forEach
+                        val stageName = roundObj["stage"]?.toString()?.trim('"') ?: ""
+                        val matchupsArray = roundObj["matchups"]?.jsonArrayOrNull ?: return@forEach
+                        
+                        val matchups = mutableListOf<com.paperapps.paperscores.network.models.PlayoffMatchup>()
+                        matchupsArray.forEach { matchupEl ->
+                            val matchupObj = matchupEl.jsonObjectOrNull ?: return@forEach
+                            val homeTeam = matchupObj["homeTeam"]?.toString()?.trim('"') ?: ""
+                            val awayTeam = matchupObj["awayTeam"]?.toString()?.trim('"') ?: ""
+                            val homeScore = matchupObj["homeScore"]?.toString()?.trim('"') ?: ""
+                            val awayScore = matchupObj["awayScore"]?.toString()?.trim('"') ?: ""
+                            val winner = matchupObj["winner"]?.toString()?.trim('"')?.takeIf { it != "null" }
+                            
+                            matchups.add(
+                                com.paperapps.paperscores.network.models.PlayoffMatchup(
+                                    homeTeam = homeTeam,
+                                    awayTeam = awayTeam,
+                                    homeScore = homeScore,
+                                    awayScore = awayScore,
+                                    winner = winner
+                                )
+                            )
+                        }
+                        playoffRounds.add(
+                            com.paperapps.paperscores.network.models.PlayoffRound(
+                                roundName = stageName,
+                                matchups = matchups
+                            )
+                        )
+                    }
+                    return@withContext playoffRounds
+                }
+                null
+            } catch (e: Exception) {
+                e.printStackTrace()
+                null
+            }
         }
     }
 }

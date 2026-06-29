@@ -12,8 +12,8 @@ android {
         applicationId = "com.paperapps.paperscores"
         minSdk = 28
         targetSdk = 36
-        versionCode = 24
-        versionName = "0.0.24"
+        versionCode = 30
+        versionName = "0.0.30"
     }
 
     buildTypes {

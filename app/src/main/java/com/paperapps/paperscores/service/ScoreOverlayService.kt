@@ -9,14 +9,17 @@ import android.graphics.PixelFormat
 import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
+import android.util.DisplayMetrics
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -36,6 +39,7 @@ import androidx.savedstate.SavedStateRegistry
 import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+import coil.compose.AsyncImage
 import com.paperapps.paperscores.MainActivity
 import com.paperapps.paperscores.R
 import com.paperapps.paperscores.network.models.MatchDetails
@@ -44,7 +48,6 @@ import com.paperapps.paperscores.theme.PureBlack
 import com.paperapps.paperscores.theme.PureWhite
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
-import androidx.compose.animation.core.animateDpAsState
 
 class ScoreOverlayService : Service(), LifecycleOwner, ViewModelStoreOwner, SavedStateRegistryOwner {
     private val lifecycleRegistry = LifecycleRegistry(this)
@@ -52,11 +55,14 @@ class ScoreOverlayService : Service(), LifecycleOwner, ViewModelStoreOwner, Save
     private val savedStateRegistryController = SavedStateRegistryController.create(this)
     
     private var windowManager: WindowManager? = null
-    private var composeView: ComposeView? = null
+    
+    private val overlayViews = mutableMapOf<String, ComposeView>()
+    private val layoutParamsMap = mutableMapOf<String, WindowManager.LayoutParams>()
+    
     private var dismissView: ComposeView? = null
     private val repository = SoccerRepository.getInstance()
 
-    private var matchId: String? = null
+    private val activeMatchIds = mutableSetOf<String>()
     private val scope = CoroutineScope(Dispatchers.IO + Job())
     private var isPolling = false
     private val isHoveringDismiss = MutableStateFlow(false)
@@ -65,12 +71,47 @@ class ScoreOverlayService : Service(), LifecycleOwner, ViewModelStoreOwner, Save
         super.onCreate()
         savedStateRegistryController.performRestore(null)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
+        windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
+        
+        setupDismissView()
+        
+        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_START)
+        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
+    }
+
+    private fun setupDismissView() {
+        dismissView = ComposeView(this).apply {
+            setViewTreeLifecycleOwner(this@ScoreOverlayService)
+            setViewTreeViewModelStoreOwner(this@ScoreOverlayService)
+            setViewTreeSavedStateRegistryOwner(this@ScoreOverlayService)
+            setContent {
+                val hovering by isHoveringDismiss.collectAsState()
+                DismissZone(isHovering = hovering)
+            }
+            visibility = View.GONE
+        }
+
+        val dismissParams = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+            else
+                WindowManager.LayoutParams.TYPE_PHONE,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+            PixelFormat.TRANSLUCENT
+        ).apply {
+            gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+            y = 150
+        }
+        
+        windowManager?.addView(dismissView, dismissParams)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val intentMatchId = intent?.getStringExtra("matchId")
         
-        if (intentMatchId == null && composeView == null) {
+        if (intentMatchId == null && overlayViews.isEmpty()) {
             stopSelf()
             return START_NOT_STICKY
         }
@@ -78,11 +119,11 @@ class ScoreOverlayService : Service(), LifecycleOwner, ViewModelStoreOwner, Save
         startForegroundService()
         
         if (intentMatchId != null) {
-            matchId = intentMatchId
-            if (composeView == null) {
-                showOverlay()
-                startPolling()
+            if (!activeMatchIds.contains(intentMatchId)) {
+                activeMatchIds.add(intentMatchId)
+                showOverlay(intentMatchId)
             }
+            startPolling()
         }
         
         return START_STICKY
@@ -99,7 +140,7 @@ class ScoreOverlayService : Service(), LifecycleOwner, ViewModelStoreOwner, Save
 
         val notification: Notification = NotificationCompat.Builder(this, "score_overlay_channel")
             .setContentTitle("Live Score Pinned")
-            .setContentText("A match score is floating on your screen")
+            .setContentText("Match scores are floating on your screen")
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentIntent(pendingIntent)
             .build()
@@ -112,7 +153,11 @@ class ScoreOverlayService : Service(), LifecycleOwner, ViewModelStoreOwner, Save
         isPolling = true
         scope.launch {
             while (isActive) {
-                matchId?.let { id ->
+                if (activeMatchIds.isEmpty()) {
+                    isPolling = false
+                    break
+                }
+                activeMatchIds.forEach { id ->
                     repository.getMatchDetails(id)
                 }
                 delay(60_000)
@@ -120,9 +165,27 @@ class ScoreOverlayService : Service(), LifecycleOwner, ViewModelStoreOwner, Save
         }
     }
 
-    private fun showOverlay() {
-        windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
-        composeView = ComposeView(this).apply {
+    private fun getNextYPosition(): Int {
+        val displayMetrics = resources.displayMetrics
+        val screenHeight = displayMetrics.heightPixels
+        val clearancePx = (120 * displayMetrics.density).toInt()
+        var yPos = (100 * displayMetrics.density).toInt()
+        
+        while (layoutParamsMap.values.any { Math.abs(it.y - yPos) < clearancePx }) {
+            yPos += clearancePx
+            if (yPos > screenHeight - clearancePx * 2) {
+                yPos = (100 * displayMetrics.density).toInt() // Wrap around if too many
+                break
+            }
+        }
+        return yPos
+    }
+
+    private fun showOverlay(matchId: String) {
+        val displayMetrics = resources.displayMetrics
+        val screenWidth = displayMetrics.widthPixels
+
+        val composeView = ComposeView(this).apply {
             setViewTreeLifecycleOwner(this@ScoreOverlayService)
             setViewTreeViewModelStoreOwner(this@ScoreOverlayService)
             setViewTreeSavedStateRegistryOwner(this@ScoreOverlayService)
@@ -132,7 +195,7 @@ class ScoreOverlayService : Service(), LifecycleOwner, ViewModelStoreOwner, Save
                 
                 LaunchedEffect(matchId) {
                     while(isActive) {
-                        currentMatch = repository.getMatchDetails(matchId!!)
+                        currentMatch = repository.getMatchDetails(matchId)
                         delay(60000)
                     }
                 }
@@ -142,17 +205,8 @@ class ScoreOverlayService : Service(), LifecycleOwner, ViewModelStoreOwner, Save
                 }
             }
         }
-
-        dismissView = ComposeView(this).apply {
-            setViewTreeLifecycleOwner(this@ScoreOverlayService)
-            setViewTreeViewModelStoreOwner(this@ScoreOverlayService)
-            setViewTreeSavedStateRegistryOwner(this@ScoreOverlayService)
-            setContent {
-                val hovering by isHoveringDismiss.collectAsState()
-                DismissZone(isHovering = hovering)
-            }
-            visibility = View.GONE
-        }
+        
+        overlayViews[matchId] = composeView
 
         val layoutParams = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
@@ -166,24 +220,11 @@ class ScoreOverlayService : Service(), LifecycleOwner, ViewModelStoreOwner, Save
         )
 
         layoutParams.gravity = Gravity.TOP or Gravity.START
-        layoutParams.x = 100
-        layoutParams.y = 200
+        layoutParams.x = screenWidth // Start on right edge
+        layoutParams.y = getNextYPosition()
+        layoutParamsMap[matchId] = layoutParams
 
-        val dismissParams = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-            else
-                WindowManager.LayoutParams.TYPE_PHONE,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
-            PixelFormat.TRANSLUCENT
-        ).apply {
-            gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
-            y = 150
-        }
-
-        composeView?.setOnTouchListener(object : View.OnTouchListener {
+        composeView.setOnTouchListener(object : View.OnTouchListener {
             private var initialX = 0
             private var initialY = 0
             private var initialTouchX = 0f
@@ -228,8 +269,17 @@ class ScoreOverlayService : Service(), LifecycleOwner, ViewModelStoreOwner, Save
                     MotionEvent.ACTION_UP -> {
                         dismissView?.visibility = View.GONE
                         if (isHoveringDismiss.value) {
-                            stopSelf()
-                        } else if (isClick) {
+                            removeOverlay(matchId)
+                        } else if (!isClick) {
+                            // Snap to nearest edge
+                            val screenMid = screenWidth / 2
+                            if (layoutParams.x > screenMid) {
+                                layoutParams.x = screenWidth
+                            } else {
+                                layoutParams.x = 0
+                            }
+                            windowManager?.updateViewLayout(composeView, layoutParams)
+                        } else {
                             val intent = Intent(
                                 Intent.ACTION_VIEW,
                                 android.net.Uri.parse("paperscores://game/$matchId"),
@@ -247,10 +297,20 @@ class ScoreOverlayService : Service(), LifecycleOwner, ViewModelStoreOwner, Save
             }
         })
 
-        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_START)
-        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
         windowManager?.addView(composeView, layoutParams)
-        windowManager?.addView(dismissView, dismissParams)
+    }
+
+    private fun removeOverlay(matchId: String) {
+        activeMatchIds.remove(matchId)
+        val view = overlayViews.remove(matchId)
+        layoutParamsMap.remove(matchId)
+        if (view != null) {
+            windowManager?.removeView(view)
+        }
+        
+        if (activeMatchIds.isEmpty()) {
+            stopSelf()
+        }
     }
 
     override fun onDestroy() {
@@ -258,10 +318,11 @@ class ScoreOverlayService : Service(), LifecycleOwner, ViewModelStoreOwner, Save
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_DESTROY)
         store.clear()
         scope.cancel()
-        if (composeView != null) {
-            windowManager?.removeView(composeView)
-            composeView = null
+        overlayViews.values.forEach { view ->
+            windowManager?.removeView(view)
         }
+        overlayViews.clear()
+        layoutParamsMap.clear()
         if (dismissView != null) {
             windowManager?.removeView(dismissView)
             dismissView = null
@@ -275,6 +336,45 @@ class ScoreOverlayService : Service(), LifecycleOwner, ViewModelStoreOwner, Save
     override val savedStateRegistry: SavedStateRegistry get() = savedStateRegistryController.savedStateRegistry
 }
 
+fun formatKickoffTime(timeStr: String): String {
+    if (timeStr.isEmpty()) return timeStr
+    try {
+        if (timeStr.contains("UTC")) {
+            val sdf = java.text.SimpleDateFormat("EEE, MMM d, yyyy, HH:mm 'UTC'", java.util.Locale.US)
+            sdf.timeZone = java.util.TimeZone.getTimeZone("UTC")
+            val date = sdf.parse(timeStr)
+            if (date != null) {
+                val outFmt = java.text.SimpleDateFormat("h:mm a", java.util.Locale.US)
+                outFmt.timeZone = java.util.TimeZone.getDefault()
+                return outFmt.format(date)
+            }
+        }
+        
+        if (timeStr.contains("T")) {
+            val sdf = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.US)
+            sdf.timeZone = java.util.TimeZone.getTimeZone("UTC")
+            val date = sdf.parse(timeStr)
+            if (date != null) {
+                val outFmt = java.text.SimpleDateFormat("h:mm a", java.util.Locale.US)
+                outFmt.timeZone = java.util.TimeZone.getDefault()
+                return outFmt.format(date)
+            }
+        }
+        
+        if (timeStr.contains(":")) {
+            val sdf = java.text.SimpleDateFormat("HH:mm", java.util.Locale.US)
+            val date = sdf.parse(timeStr)
+            if (date != null) {
+                val outFmt = java.text.SimpleDateFormat("h:mm a", java.util.Locale.US)
+                return outFmt.format(date)
+            }
+        }
+    } catch (e: Exception) {
+        e.printStackTrace()
+    }
+    return timeStr
+}
+
 @Composable
 fun ScoreBubble(match: MatchDetails) {
     Box(
@@ -283,49 +383,91 @@ fun ScoreBubble(match: MatchDetails) {
             .clip(RoundedCornerShape(24.dp))
             .background(PureWhite)
             .border(2.dp, PureBlack, RoundedCornerShape(24.dp))
-            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .padding(horizontal = 12.dp, vertical = 6.dp)
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Box(
-                modifier = Modifier
-                    .background(PureBlack, RoundedCornerShape(8.dp))
-                    .padding(horizontal = 6.dp, vertical = 2.dp)
+        val isUpcoming = match.status == "Upcoming"
+        
+        if (isUpcoming) {
+            // Display like the screenshot: Flag | Starts at [Time] | Flag
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
             ) {
-                Text(
-                    text = if (match.status == "Active") match.liveTime else match.status,
-                    color = PureWhite,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold
+                AsyncImage(
+                    model = match.homeTeam.imageUrl,
+                    contentDescription = null,
+                    modifier = Modifier.size(24.dp).clip(CircleShape)
+                )
+                
+                Spacer(modifier = Modifier.width(8.dp))
+                
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "Starts at",
+                        color = androidx.compose.ui.graphics.Color.Gray,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text = formatKickoffTime(match.matchTime),
+                        color = PureBlack,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                
+                Spacer(modifier = Modifier.width(8.dp))
+                
+                AsyncImage(
+                    model = match.awayTeam.imageUrl,
+                    contentDescription = null,
+                    modifier = Modifier.size(24.dp).clip(CircleShape)
                 )
             }
-            
-            Spacer(modifier = Modifier.height(4.dp))
-            
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = match.homeTeam.name.take(3).uppercase(),
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp,
-                    color = PureBlack
-                )
+        } else {
+            // Display active/finished score
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Box(
+                    modifier = Modifier
+                        .background(PureBlack, RoundedCornerShape(8.dp))
+                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                ) {
+                    Text(
+                        text = if (match.status == "Active") match.liveTime else match.status,
+                        color = PureWhite,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
                 
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.height(4.dp))
                 
-                Text(
-                    text = "${match.score.home ?: 0} - ${match.score.away ?: 0}",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp,
-                    color = PureBlack
-                )
-                
-                Spacer(modifier = Modifier.width(8.dp))
-                
-                Text(
-                    text = match.awayTeam.name.take(3).uppercase(),
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp,
-                    color = PureBlack
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = match.homeTeam.name.take(3).uppercase(),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp,
+                        color = PureBlack
+                    )
+                    
+                    Spacer(modifier = Modifier.width(8.dp))
+                    
+                    Text(
+                        text = "${match.score.home ?: 0} - ${match.score.away ?: 0}",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp,
+                        color = PureBlack
+                    )
+                    
+                    Spacer(modifier = Modifier.width(8.dp))
+                    
+                    Text(
+                        text = match.awayTeam.name.take(3).uppercase(),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp,
+                        color = PureBlack
+                    )
+                }
             }
         }
     }
@@ -337,9 +479,9 @@ fun DismissZone(isHovering: Boolean) {
     Box(
         modifier = Modifier
             .size(size)
-            .clip(androidx.compose.foundation.shape.CircleShape)
+            .clip(CircleShape)
             .background(if (isHovering) PureBlack else PureWhite)
-            .border(2.dp, PureBlack, androidx.compose.foundation.shape.CircleShape),
+            .border(2.dp, PureBlack, CircleShape),
         contentAlignment = Alignment.Center
     ) {
         Icon(

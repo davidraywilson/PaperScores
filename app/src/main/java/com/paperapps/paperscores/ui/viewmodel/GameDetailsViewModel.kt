@@ -9,11 +9,21 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
+sealed class TournamentState {
+    object Loading : TournamentState()
+    data class Table(val entries: List<com.paperapps.paperscores.network.models.TableEntry>) : TournamentState()
+    data class Playoff(val rounds: List<com.paperapps.paperscores.network.models.PlayoffRound>) : TournamentState()
+    object Empty : TournamentState()
+}
+
 class GameDetailsViewModel : ViewModel() {
     private val repository = SoccerRepository.getInstance()
     
     private val _matchDetails = MutableStateFlow<MatchDetails?>(null)
     val matchDetails: StateFlow<MatchDetails?> = _matchDetails.asStateFlow()
+
+    private val _tournamentData = MutableStateFlow<TournamentState>(TournamentState.Loading)
+    val tournamentData: StateFlow<TournamentState> = _tournamentData.asStateFlow()
 
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
@@ -27,6 +37,25 @@ class GameDetailsViewModel : ViewModel() {
             val details = repository.getMatchDetails(matchId)
             _matchDetails.value = details
             _isLoading.value = false
+            
+            _tournamentData.value = TournamentState.Loading
+            if (!details?.tableUrl.isNullOrBlank()) {
+                val table = repository.getLeagueTable(details!!.tableUrl!!)
+                if (table != null) {
+                    _tournamentData.value = TournamentState.Table(table)
+                } else {
+                    _tournamentData.value = TournamentState.Empty
+                }
+            } else if (!details?.leagueId.isNullOrBlank()) {
+                val playoff = repository.getPlayoffBracket(details!!.leagueId!!)
+                if (playoff != null && playoff.isNotEmpty()) {
+                    _tournamentData.value = TournamentState.Playoff(playoff)
+                } else {
+                    _tournamentData.value = TournamentState.Empty
+                }
+            } else {
+                _tournamentData.value = TournamentState.Empty
+            }
             
             if (details != null && details.status != "Finished") {
                 startPolling(matchId)

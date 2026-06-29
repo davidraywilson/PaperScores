@@ -28,6 +28,7 @@ import com.paperapps.paperscores.ui.viewmodel.UserProfileViewModel
 
 @Composable
 fun UserProfileScreen(
+    onTeamClick: (String) -> Unit,
     viewModel: UserProfileViewModel = viewModel()
 ) {
     val followedTeams by viewModel.followedTeams.collectAsState()
@@ -94,7 +95,12 @@ fun UserProfileScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 12.dp),
+                                .padding(vertical = 12.dp)
+                                .clickable {
+                                    if (result is SearchResult.TeamResult) {
+                                        onTeamClick(result.team.id)
+                                    }
+                                },
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -164,7 +170,7 @@ fun UserProfileScreen(
                                 team = team,
                                 nextMatch = teamFixtures[team.id],
                                 onUnfollow = { viewModel.unfollowTeam(team.id) },
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.weight(1f).clickable { onTeamClick(team.id) }
                             )
                         }
                         if (rowTeams.size == 1) {

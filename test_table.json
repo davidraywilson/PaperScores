@@ -1,0 +1,19 @@
+<table name="Besta deildin" ccode="ISL" lid="215" wp="1" tp="1" qp="1" rp="1" l_champ_playoff="1,2,3,4,5,6" l_relegation_playoff="7,8,9,10,11,12">
+  <t name="Vikingur Reykjavik" id="6017" p="34" w="11" d="1" l="0" g="41" c="6" hp="16" hw="5" hd="1" hl="0" hg="21" hc="3" change="" />
+  <t name="KR Reykjavik" id="8130" p="28" w="9" d="1" l="2" g="43" c="28" hp="19" hw="6" hd="1" hl="0" hg="27" hc="15" change="" />
+  <t name="Fram Reykjavik" id="6291" p="23" w="7" d="2" l="2" g="29" c="24" hp="13" hw="4" hd="1" hl="1" hg="18" hc="15" change="" />
+  <t name="Breidablik" id="8332" p="19" w="5" d="4" l="2" g="29" c="20" hp="13" hw="4" hd="1" hl="0" hg="17" hc="7" change="" />
+  <t name="Valur" id="8064" p="16" w="5" d="1" l="6" g="20" c="24" hp="10" hw="3" hd="1" hl="3" hg="12" hc="15" change="" />
+  <t name="IA Akranes" id="8004" p="15" w="4" d="3" l="4" g="16" c="21" hp="5" hw="1" hd="2" hl="1" hg="5" hc="6" change="" />
+  <t name="Keflavik" id="4472" p="12" w="3" d="3" l="5" g="14" c="21" hp="5" hw="1" hd="2" hl="2" hg="4" hc="6" change="" />
+  <t name="Stjarnan" id="6343" p="11" w="3" d="2" l="7" g="23" c="28" hp="4" hw="1" hd="1" hl="5" hg="13" hc="19" change="" />
+  <t name="IBV Vestmannaeyjar" id="8299" p="11" w="3" d="2" l="6" g="20" c="25" hp="7" hw="2" hd="1" hl="3" hg="12" hc="13" change="" />
+  <t name="KA Akureyri" id="2165" p="10" w="3" d="1" l="7" g="16" c="22" hp="3" hw="1" hd="0" hl="5" hg="8" hc="12" change="" />
+  <t name="Thor Akureyri" id="4496" p="7" w="2" d="1" l="8" g="9" c="28" hp="3" hw="1" hd="0" hl="4" hg="4" hc="10" change="" />
+  <t name="FH Hafnarfjordur" id="8151" p="6" w="1" d="3" l="7" g="15" c="28" hp="1" hw="0" hd="1" hl="3" hg="5" hc="8" change="" />
+  <rules>
+    <ti desc="Championship playoff" color="#2AD572" tkey="championship_playoff" value="1,2,3,4,5,6" />
+    <ti desc="Relegation qualification" color="#FFA72F" tkey="relegationqual" value="7,8,9,10,11,12" />
+  </rules>
+  <form url="https://pub.fotmob.com/prod/pub/league/215/form" />
+</table>

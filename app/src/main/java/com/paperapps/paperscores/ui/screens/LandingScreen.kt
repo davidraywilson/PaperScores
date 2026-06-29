@@ -30,10 +30,11 @@ import kotlinx.coroutines.launch
 @Composable
 fun LandingScreen(
     onGameClick: (String) -> Unit,
+    onTeamClick: (String) -> Unit,
     todaysGamesViewModel: TodaysGamesViewModel = viewModel(),
     userProfileViewModel: UserProfileViewModel = viewModel()
 ) {
-    val pagerState = rememberPagerState(pageCount = { 2 })
+    val pagerState = rememberPagerState(pageCount = { 3 })
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
     val isToday by todaysGamesViewModel.isToday.collectAsState()
@@ -45,7 +46,7 @@ fun LandingScreen(
 
         PanoramaHeader(
             pagerState = pagerState,
-            titles = listOf("games", "profile"),
+            titles = listOf("games", "profile", "settings"),
             coroutineScope = coroutineScope,
             modifier = Modifier.fillMaxWidth(),
             peekPadding = 48.dp
@@ -60,7 +61,8 @@ fun LandingScreen(
         ) { page ->
             when (page) {
                 0 -> TodaysGamesScreen(onGameClick = onGameClick, viewModel = todaysGamesViewModel)
-                1 -> UserProfileScreen(viewModel = userProfileViewModel)
+                1 -> UserProfileScreen(onTeamClick = onTeamClick, viewModel = userProfileViewModel)
+                2 -> SettingsScreen()
             }
         }
 

@@ -1,6 +1,7 @@
 package com.paperapps.paperscores.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -38,17 +39,20 @@ import com.paperapps.paperscores.ui.components.AppbarAction
 import com.paperapps.paperscores.ui.components.ApplicationBar
 import com.paperapps.paperscores.ui.components.DashedDivider
 import com.paperapps.paperscores.ui.components.PanoramaHeader
+import com.paperapps.paperscores.ui.components.TableView
+import com.paperapps.paperscores.ui.components.MatchScoreHeader
 import com.paperapps.paperscores.ui.viewmodel.GameDetailsViewModel
 
 @Composable
 fun GameDetailsScreen(
     matchId: String,
     onBackClick: () -> Unit,
+    onTeamClick: (String) -> Unit,
     viewModel: GameDetailsViewModel = viewModel()
 ) {
     val matchDetails by viewModel.matchDetails.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
-    val pagerState = rememberPagerState(pageCount = { 3 })
+    val pagerState = rememberPagerState(pageCount = { 4 })
     val coroutineScope = rememberCoroutineScope()
 
     LaunchedEffect(matchId) {
@@ -60,7 +64,7 @@ fun GameDetailsScreen(
 
         PanoramaHeader(
             pagerState = pagerState,
-            titles = listOf("box score", "stats", "lineups"),
+            titles = listOf("box score", "stats", "lineups", "tournament"),
             coroutineScope = coroutineScope,
             modifier = Modifier.fillMaxWidth(),
             peekPadding = 48.dp
@@ -86,9 +90,10 @@ fun GameDetailsScreen(
                 contentPadding = PaddingValues(end = 48.dp)
             ) { page ->
                 when (page) {
-                    0 -> BoxScoreTab(match)
+                    0 -> BoxScoreTab(match, onTeamClick)
                     1 -> StatsTab(match)
                     2 -> LineupsTab(match)
+                    3 -> TournamentTab(viewModel)
                 }
             }
         }
@@ -136,144 +141,13 @@ fun GameDetailsScreen(
 }
 
 @Composable
-fun BoxScoreTab(match: com.paperapps.paperscores.network.models.MatchDetails) {
+fun BoxScoreTab(match: com.paperapps.paperscores.network.models.MatchDetails, onTeamClick: (String) -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(vertical = 0.dp, horizontal = 16.dp),
     ) {
-        val dateFormatted = try {
-            val formatterIn = java.time.format.DateTimeFormatter.ofPattern("EEE, MMM d, yyyy, HH:mm z", java.util.Locale.US)
-            val zonedDateTime = java.time.ZonedDateTime.parse(match.matchTime, formatterIn)
-            val formatterOut = java.time.format.DateTimeFormatter.ofPattern("EEEE, MMMM d, yyyy")
-            zonedDateTime.format(formatterOut)
-        } catch (e: Exception) {
-            match.matchTime.split(",").take(3).joinToString(",").trim()
-        }
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(dateFormatted, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-
-            if (match.status == "Active") {
-                Text(
-                    text = match.liveTime.ifBlank { "LIVE" },
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = PureBlack
-                )
-            } else if (match.status == "Finished") {
-                Text(
-                    text = "FT",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = EInkGrey
-                )
-            } else if (match.status != "Upcoming") {
-                Text(
-                    text = match.status,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = PureBlack
-                )
-            }
-        }
-
-        if (match.stadiumName.isNotBlank()) {
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(match.stadiumName, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = PureBlack)
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        val grayscaleMatrix = ColorMatrix().apply { setToSaturation(0f) }
-
-        // Home Team Row
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 4.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            if (match.homeTeam.imageUrl.isNotBlank()) {
-                AsyncImage(
-                    model = match.homeTeam.imageUrl,
-                    contentDescription = match.homeTeam.name,
-                    modifier = Modifier
-                        .padding(end = 8.dp)
-                        .size(24.dp),
-                    colorFilter = ColorFilter.colorMatrix(grayscaleMatrix)
-                )
-            } else {
-                Spacer(modifier = Modifier.width(32.dp))
-            }
-
-            Row(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
-                Box(
-                    modifier = Modifier
-                        .background(PureBlack)
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                ) {
-                    Text(match.homeTeam.name.uppercase(), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = PureWhite, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
-            }
-
-            if (match.score.home != null) {
-                Box(
-                    modifier = Modifier
-                        .width(36.dp)
-                        .background(PureBlack)
-                        .padding(vertical = 4.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("${match.score.home}", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = PureWhite)
-                }
-            }
-        }
-
-        // Away Team Row
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            if (match.awayTeam.imageUrl.isNotBlank()) {
-                AsyncImage(
-                    model = match.awayTeam.imageUrl,
-                    contentDescription = match.awayTeam.name,
-                    modifier = Modifier
-                        .padding(end = 8.dp)
-                        .size(24.dp),
-                    colorFilter = ColorFilter.colorMatrix(grayscaleMatrix)
-                )
-            } else {
-                Spacer(modifier = Modifier.width(32.dp))
-            }
-
-            Row(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
-                Box(
-                    modifier = Modifier
-                        .background(PureBlack)
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                ) {
-                    Text(match.awayTeam.name.uppercase(), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = PureWhite, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
-            }
-
-            if (match.score.away != null) {
-                Box(
-                    modifier = Modifier
-                        .width(36.dp)
-                        .background(PureBlack)
-                        .padding(vertical = 4.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("${match.score.away}", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = PureWhite)
-                }
-            }
-        }
+        MatchScoreHeader(match = match, onTeamClick = onTeamClick)
 
         Spacer(modifier = Modifier.height(24.dp))
 
@@ -435,3 +309,102 @@ fun LineupsTab(match: com.paperapps.paperscores.network.models.MatchDetails) {
     }
 }
 
+@Composable
+fun TournamentTab(viewModel: GameDetailsViewModel) {
+    val tournamentData by viewModel.tournamentData.collectAsState()
+    
+    when (val state = tournamentData) {
+        is com.paperapps.paperscores.ui.viewmodel.TournamentState.Loading -> {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("Loading tournament...", fontSize = 14.sp, color = PureBlack)
+            }
+        }
+        is com.paperapps.paperscores.ui.viewmodel.TournamentState.Empty -> {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("No tournament data available.", fontSize = 14.sp, color = PureBlack)
+            }
+        }
+        is com.paperapps.paperscores.ui.viewmodel.TournamentState.Table -> {
+            TableView(state.entries)
+        }
+        is com.paperapps.paperscores.ui.viewmodel.TournamentState.Playoff -> {
+            PlayoffBracketView(state.rounds)
+        }
+    }
+}
+
+
+
+@Composable
+fun PlayoffBracketView(rounds: List<com.paperapps.paperscores.network.models.PlayoffRound>) {
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp),
+    ) {
+        items(rounds) { round ->
+            Text(
+                text = round.roundName.uppercase(),
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp,
+                color = PureBlack,
+                modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
+            )
+            DashedDivider()
+            
+            round.matchups.forEach { matchup ->
+                Column(modifier = Modifier.padding(vertical = 12.dp)) {
+                    val homeWinner = matchup.winner == matchup.homeTeam
+                    val awayWinner = matchup.winner == matchup.awayTeam
+                    
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = matchup.homeTeam,
+                            modifier = Modifier.weight(1f),
+                            fontWeight = if (homeWinner) FontWeight.Bold else FontWeight.Normal,
+                            fontSize = 14.sp,
+                            color = PureBlack,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        if (matchup.homeScore.isNotBlank()) {
+                            Text(
+                                text = matchup.homeScore,
+                                fontWeight = if (homeWinner) FontWeight.Bold else FontWeight.Normal,
+                                fontSize = 14.sp,
+                                color = PureBlack
+                            )
+                        }
+                    }
+                    
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = matchup.awayTeam,
+                            modifier = Modifier.weight(1f),
+                            fontWeight = if (awayWinner) FontWeight.Bold else FontWeight.Normal,
+                            fontSize = 14.sp,
+                            color = PureBlack,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        if (matchup.awayScore.isNotBlank()) {
+                            Text(
+                                text = matchup.awayScore,
+                                fontWeight = if (awayWinner) FontWeight.Bold else FontWeight.Normal,
+                                fontSize = 14.sp,
+                                color = PureBlack
+                            )
+                        }
+                    }
+                }
+                DashedDivider()
+            }
+        }
+    }
+}

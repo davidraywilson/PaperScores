@@ -12,7 +12,7 @@ class SoccerApplication : Application() {
     
     override fun onCreate() {
         super.onCreate()
-        SoccerRepository.initialize(database.soccerDao())
+        SoccerRepository.initialize(this, database.soccerDao())
         createNotificationChannel()
     }
 

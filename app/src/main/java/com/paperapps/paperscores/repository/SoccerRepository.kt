@@ -35,7 +35,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-class SoccerRepository private constructor(private val dao: SoccerDao) {
+class SoccerRepository private constructor(private val context: android.content.Context, private val dao: SoccerDao) {
     private val apiClient = FotMobApiClient()
     private val scope = CoroutineScope(Dispatchers.IO)
 
@@ -64,11 +64,13 @@ class SoccerRepository private constructor(private val dao: SoccerDao) {
         val tourneyIds = tournaments.map { it.id }
         val teamIds = teams.map { it.id }
         
-        rawGames.filter { game ->
+        val followedGames = rawGames.filter { game ->
             game.tournamentId in tourneyIds ||
             game.homeTeam.id in teamIds ||
             game.awayTeam.id in teamIds
         }
+        scheduleNotifications(followedGames)
+        followedGames
     }.stateIn(scope, SharingStarted.Lazily, emptyList())
 
     private fun extractAttribute(block: String, attr: String): String? {
@@ -151,6 +153,7 @@ class SoccerRepository private constructor(private val dao: SoccerDao) {
                         }
                         var matchTimeStr = time.substringAfter(" ")
                         var matchLocalDateStr = ""
+                        var matchStartTimeMs: Long? = null
                         
                         if (time.isNotEmpty() && !isFinished) {
                             try {
@@ -158,6 +161,7 @@ class SoccerRepository private constructor(private val dao: SoccerDao) {
                                 if (parsedDate != null) {
                                     matchLocalDateStr = localDateOnlyFormat.format(parsedDate)
                                     matchTimeStr = outputFormat.format(parsedDate)
+                                    matchStartTimeMs = parsedDate.time
                                 }
                             } catch (e: Exception) {
                                 e.printStackTrace()
@@ -167,6 +171,7 @@ class SoccerRepository private constructor(private val dao: SoccerDao) {
                                 val parsedDate = inputFormat.parse(time)
                                 if (parsedDate != null) {
                                     matchLocalDateStr = localDateOnlyFormat.format(parsedDate)
+                                    matchStartTimeMs = parsedDate.time
                                 }
                             } catch (e: Exception) {
                                 e.printStackTrace()
@@ -223,7 +228,8 @@ class SoccerRepository private constructor(private val dao: SoccerDao) {
                             },
                             liveTime = liveMinute,
                             tournamentId = tourneyId,
-                            tournamentName = tourneyName
+                            tournamentName = tourneyName,
+                            startTimeMs = matchStartTimeMs
                         )
                         parsedMatches.add(matchDetails)
                     }
@@ -338,15 +344,81 @@ class SoccerRepository private constructor(private val dao: SoccerDao) {
         return resultMap
     }
 
+    suspend fun getLeagueTable(url: String): List<com.paperapps.paperscores.network.models.TableEntry>? {
+        return apiClient.getLeagueTable(url)
+    }
+
+    suspend fun getPlayoffBracket(leagueId: String): List<com.paperapps.paperscores.network.models.PlayoffRound>? {
+        return apiClient.getPlayoffBracket(leagueId)
+    }
+
+    suspend fun getTeamDetails(teamId: String): com.paperapps.paperscores.network.models.TeamDetails? {
+        return apiClient.getTeamDetails(teamId)
+    }
+
+    private fun scheduleNotifications(games: List<MatchDetails>) {
+        val workManager = androidx.work.WorkManager.getInstance(context)
+        val userPrefs = UserPreferences.getInstance(context)
+        val remindersEnabled = userPrefs.isMatchRemindersEnabled
+
+        val now = System.currentTimeMillis()
+        games.filter { it.status == "Upcoming" && it.startTimeMs != null }.forEach { match ->
+            val uniqueWorkName = "match_notification_${match.matchId}"
+            
+            if (!remindersEnabled) {
+                workManager.cancelUniqueWork(uniqueWorkName)
+                return@forEach
+            }
+            
+            val timeToKickoff = match.startTimeMs!! - now
+            val fifteenMinsMs = 15 * 60 * 1000L
+            if (timeToKickoff in 1..fifteenMinsMs) {
+                // If it's within 15 minutes, trigger it basically immediately or with the exact delay
+                val delay = Math.max(0L, timeToKickoff - fifteenMinsMs)
+                
+                val workRequest = androidx.work.OneTimeWorkRequestBuilder<com.paperapps.paperscores.worker.MatchNotificationWorker>()
+                    .setInitialDelay(delay, java.util.concurrent.TimeUnit.MILLISECONDS)
+                    .setInputData(androidx.work.workDataOf("matchId" to match.matchId))
+                    .addTag("match_notification")
+                    .build()
+                
+                workManager.enqueueUniqueWork(
+                    uniqueWorkName,
+                    androidx.work.ExistingWorkPolicy.REPLACE,
+                    workRequest
+                )
+            } else if (timeToKickoff > fifteenMinsMs) {
+                // Schedule for exactly 15 minutes before
+                val delay = timeToKickoff - fifteenMinsMs
+                val workRequest = androidx.work.OneTimeWorkRequestBuilder<com.paperapps.paperscores.worker.MatchNotificationWorker>()
+                    .setInitialDelay(delay, java.util.concurrent.TimeUnit.MILLISECONDS)
+                    .setInputData(androidx.work.workDataOf("matchId" to match.matchId))
+                    .addTag("match_notification")
+                    .build()
+
+                workManager.enqueueUniqueWork(
+                    uniqueWorkName,
+                    androidx.work.ExistingWorkPolicy.REPLACE,
+                    workRequest
+                )
+            }
+        }
+    }
+
+    fun cancelAllNotifications() {
+        val workManager = androidx.work.WorkManager.getInstance(context)
+        workManager.cancelAllWorkByTag("match_notification")
+    }
+
     companion object {
         @Volatile
         private var INSTANCE: SoccerRepository? = null
 
-        fun initialize(dao: SoccerDao) {
+        fun initialize(context: android.content.Context, dao: SoccerDao) {
             if (INSTANCE == null) {
                 synchronized(this) {
                     if (INSTANCE == null) {
-                        INSTANCE = SoccerRepository(dao)
+                        INSTANCE = SoccerRepository(context.applicationContext, dao)
                     }
                 }
             }
