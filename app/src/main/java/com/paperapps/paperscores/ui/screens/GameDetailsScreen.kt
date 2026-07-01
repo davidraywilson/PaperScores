@@ -5,8 +5,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
+import com.paperapps.paperui.components.PanoramaPager
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Refresh
@@ -35,10 +36,10 @@ import coil.compose.AsyncImage
 import com.paperapps.paperscores.theme.PureBlack
 import com.paperapps.paperscores.theme.PureWhite
 import com.paperapps.paperscores.theme.EInkGrey
-import com.paperapps.paperscores.ui.components.AppbarAction
-import com.paperapps.paperscores.ui.components.ApplicationBar
-import com.paperapps.paperscores.ui.components.DashedDivider
-import com.paperapps.paperscores.ui.components.PanoramaHeader
+import com.paperapps.paperui.components.AppbarAction
+import com.paperapps.paperui.components.ApplicationBar
+import com.paperapps.paperui.components.DashedDivider
+import com.paperapps.paperui.components.PanoramaHeader
 import com.paperapps.paperscores.ui.components.TableView
 import com.paperapps.paperscores.ui.components.MatchScoreHeader
 import com.paperapps.paperscores.ui.viewmodel.GameDetailsViewModel
@@ -60,17 +61,12 @@ fun GameDetailsScreen(
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        Spacer(modifier = Modifier.height(48.dp))
-
         PanoramaHeader(
             pagerState = pagerState,
             titles = listOf("box score", "stats", "lineups", "tournament"),
             coroutineScope = coroutineScope,
-            modifier = Modifier.fillMaxWidth(),
-            peekPadding = 48.dp
+            modifier = Modifier.fillMaxWidth()
         )
-
-        Spacer(modifier = Modifier.height(16.dp))
 
         if (matchDetails == null) {
             Box(
@@ -84,10 +80,9 @@ fun GameDetailsScreen(
         } else {
             val match = matchDetails!!
             
-            HorizontalPager(
+            PanoramaPager(
                 state = pagerState,
-                modifier = Modifier.weight(1f),
-                contentPadding = PaddingValues(end = 48.dp)
+                modifier = Modifier.weight(1f)
             ) { page ->
                 when (page) {
                     0 -> BoxScoreTab(match, onTeamClick)

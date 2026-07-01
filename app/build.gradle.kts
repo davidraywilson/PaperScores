@@ -97,8 +97,8 @@ dependencies {
   // WorkManager
   implementation(libs.androidx.work.runtime.ktx)
 
-  // Mudita UI
-  implementation(libs.mudita.mmd)
+  // PaperUI — reusable e-ink component library (includes MMD transitively)
+  implementation(project(":paperui"))
 
   // Room
   implementation(libs.androidx.room.runtime)

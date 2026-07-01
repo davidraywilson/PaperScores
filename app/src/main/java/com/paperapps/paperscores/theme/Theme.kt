@@ -1,42 +1,20 @@
 package com.paperapps.paperscores.theme
 
-import android.app.Activity
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.lightColorScheme
+// Re-export the PaperUI theme under the legacy name so all existing call sites
+// in this module continue to compile without changes.
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.SideEffect
-import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.platform.LocalView
-import androidx.core.view.WindowCompat
+import com.paperapps.paperui.theme.PaperUITheme
 
-private val EInkColorScheme = lightColorScheme(
-    primary = PureBlack,
-    onPrimary = PureWhite,
-    secondary = PureBlack,
-    onSecondary = PureWhite,
-    tertiary = PureBlack,
-    background = PureWhite,
-    onBackground = PureBlack,
-    surface = PureWhite,
-    onSurface = PureBlack,
-)
+// Re-export colors so any remaining imports in :app still resolve.
+@Suppress("UnusedImport")
+val PureBlack  get() = com.paperapps.paperui.theme.PureBlack
+val PureWhite  get() = com.paperapps.paperui.theme.PureWhite
+val EInkGrey   get() = com.paperapps.paperui.theme.EInkGrey
+val EInkDarkGrey get() = com.paperapps.paperui.theme.EInkDarkGrey
 
+/**
+ * Thin wrapper kept for backward compatibility inside the :app module.
+ * All new code should use [PaperUITheme] from the :paperui library directly.
+ */
 @Composable
-fun SoccerScoresTheme(
-    content: @Composable () -> Unit
-) {
-    val view = LocalView.current
-    if (!view.isInEditMode) {
-        SideEffect {
-            val window = (view.context as Activity).window
-            window.statusBarColor = PureWhite.toArgb()
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = true
-        }
-    }
-
-    MaterialTheme(
-        colorScheme = EInkColorScheme,
-        typography = Typography,
-        content = content
-    )
-}
+fun SoccerScoresTheme(content: @Composable () -> Unit) = PaperUITheme(content)

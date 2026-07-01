@@ -33,3 +33,8 @@ plugins {
 
 rootProject.name = "PaperScores"
 include(":app")
+
+// Reference the standalone PaperUI project externally
+include(":paperui")
+project(":paperui").projectDir = file("../PaperUI/paperui")
+
