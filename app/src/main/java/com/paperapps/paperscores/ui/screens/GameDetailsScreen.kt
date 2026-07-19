@@ -139,8 +139,7 @@ fun GameDetailsScreen(
 fun BoxScoreTab(match: com.paperapps.paperscores.network.models.MatchDetails, onTeamClick: (String) -> Unit) {
     Column(
         modifier = Modifier
-            .fillMaxSize()
-            .padding(vertical = 0.dp, horizontal = 16.dp),
+            .fillMaxSize(),
     ) {
         MatchScoreHeader(match = match, onTeamClick = onTeamClick)
 
@@ -231,8 +230,7 @@ fun BoxScoreTab(match: com.paperapps.paperscores.network.models.MatchDetails, on
 fun StatsTab(match: com.paperapps.paperscores.network.models.MatchDetails) {
     LazyColumn(
         modifier = Modifier
-            .fillMaxSize()
-            .padding(vertical = 0.dp, horizontal = 16.dp),
+            .fillMaxSize(),
     ) {
         items(match.stats) { stat ->
             Row(
@@ -259,8 +257,7 @@ fun StatsTab(match: com.paperapps.paperscores.network.models.MatchDetails) {
 fun LineupsTab(match: com.paperapps.paperscores.network.models.MatchDetails) {
     Row(
         modifier = Modifier
-            .fillMaxSize()
-            .padding(vertical = 0.dp, horizontal = 16.dp),
+            .fillMaxSize(),
     ) {
         // Home Lineup
         Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
@@ -334,8 +331,7 @@ fun TournamentTab(viewModel: GameDetailsViewModel) {
 fun PlayoffBracketView(rounds: List<com.paperapps.paperscores.network.models.PlayoffRound>) {
     LazyColumn(
         modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 16.dp),
+            .fillMaxSize(),
     ) {
         items(rounds) { round ->
             Text(

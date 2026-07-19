@@ -49,7 +49,7 @@ fun UserProfileScreen(
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(vertical = 0.dp, horizontal = 16.dp),
+                .padding(end = 16.dp),
         ) {
             if (isSearchBarVisible) {
                 item {

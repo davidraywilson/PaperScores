@@ -24,8 +24,7 @@ fun SettingsScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 16.dp)
-            .padding(bottom = 16.dp)
+            .padding(end = 16.dp)
     ) {
         Text(
             text = "notifications",

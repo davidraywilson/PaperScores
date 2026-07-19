@@ -108,8 +108,7 @@ fun TeamDetailsScreen(
 @Composable
 fun OverviewTab(details: TeamDetails, onGameClick: (String) -> Unit, onTeamClick: (String) -> Unit) {
     LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 16.dp)
+        modifier = Modifier.fillMaxSize()
     ) {
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -248,8 +247,7 @@ fun FixturesTab(details: TeamDetails, onGameClick: (String) -> Unit) {
         }
     } else {
         LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(horizontal = 16.dp)
+            modifier = Modifier.fillMaxSize()
         ) {
             items(details.fixtures) { match ->
                 MatchCard(match = match, onClick = { onGameClick(match.matchId) })
@@ -277,8 +275,7 @@ fun SquadTab(details: TeamDetails) {
         }
     } else {
         LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(horizontal = 16.dp)
+            modifier = Modifier.fillMaxSize()
         ) {
             details.squad.forEach { section ->
                 item {

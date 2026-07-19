@@ -42,7 +42,7 @@ fun TodaysGamesScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 0.dp, horizontal = 16.dp),
+                .padding(end = 16.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
         ) {
@@ -100,7 +100,7 @@ fun TodaysGamesScreen(
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp)
+                    contentPadding = PaddingValues(top = 16.dp, end = 16.dp)
                 ) {
                     items(todaysGames) { match ->
                         MatchCard(match = match, onClick = { onGameClick(match.matchId) })

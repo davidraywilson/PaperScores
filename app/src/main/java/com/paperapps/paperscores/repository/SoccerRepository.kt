@@ -360,42 +360,56 @@ class SoccerRepository private constructor(private val context: android.content.
         val workManager = androidx.work.WorkManager.getInstance(context)
         val userPrefs = UserPreferences.getInstance(context)
         val remindersEnabled = userPrefs.isMatchRemindersEnabled
+        val alarmManager = context.getSystemService(android.content.Context.ALARM_SERVICE) as android.app.AlarmManager
 
         val now = System.currentTimeMillis()
         games.filter { it.status == "Upcoming" && it.startTimeMs != null }.forEach { match ->
             val uniqueWorkName = "match_notification_${match.matchId}"
+            val serviceIntent = android.content.Intent(context, com.paperapps.paperscores.service.ScoreOverlayService::class.java).apply {
+                putExtra("matchId", match.matchId)
+            }
+            val pendingIntent = android.app.PendingIntent.getForegroundService(
+                context,
+                match.matchId.hashCode(),
+                serviceIntent,
+                android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
+            )
             
             if (!remindersEnabled) {
                 workManager.cancelUniqueWork(uniqueWorkName)
+                alarmManager.cancel(pendingIntent)
                 return@forEach
             }
             
             val timeToKickoff = match.startTimeMs!! - now
             val fifteenMinsMs = 15 * 60 * 1000L
-            if (timeToKickoff in 1..fifteenMinsMs) {
-                // If it's within 15 minutes, trigger it basically immediately or with the exact delay
-                val delay = Math.max(0L, timeToKickoff - fifteenMinsMs)
-                
-                val workRequest = androidx.work.OneTimeWorkRequestBuilder<com.paperapps.paperscores.worker.MatchNotificationWorker>()
-                    .setInitialDelay(delay, java.util.concurrent.TimeUnit.MILLISECONDS)
-                    .setInputData(androidx.work.workDataOf("matchId" to match.matchId))
-                    .addTag("match_notification")
-                    .build()
-                
-                workManager.enqueueUniqueWork(
-                    uniqueWorkName,
-                    androidx.work.ExistingWorkPolicy.REPLACE,
-                    workRequest
-                )
-            } else if (timeToKickoff > fifteenMinsMs) {
-                // Schedule for exactly 15 minutes before
-                val delay = timeToKickoff - fifteenMinsMs
-                val workRequest = androidx.work.OneTimeWorkRequestBuilder<com.paperapps.paperscores.worker.MatchNotificationWorker>()
-                    .setInitialDelay(delay, java.util.concurrent.TimeUnit.MILLISECONDS)
-                    .setInputData(androidx.work.workDataOf("matchId" to match.matchId))
-                    .addTag("match_notification")
-                    .build()
+            val triggerTime = match.startTimeMs!! - fifteenMinsMs
 
+            if (timeToKickoff > 0) {
+                try {
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                        if (alarmManager.canScheduleExactAlarms()) {
+                            alarmManager.setExactAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, Math.max(now, triggerTime), pendingIntent)
+                            workManager.cancelUniqueWork(uniqueWorkName)
+                            return@forEach
+                        }
+                    } else {
+                        alarmManager.setExactAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, Math.max(now, triggerTime), pendingIntent)
+                        workManager.cancelUniqueWork(uniqueWorkName)
+                        return@forEach
+                    }
+                } catch (e: SecurityException) {
+                    e.printStackTrace()
+                }
+
+                // Fallback to WorkManager
+                val delay = Math.max(0L, timeToKickoff - fifteenMinsMs)
+                val workRequest = androidx.work.OneTimeWorkRequestBuilder<com.paperapps.paperscores.worker.MatchNotificationWorker>()
+                    .setInitialDelay(delay, java.util.concurrent.TimeUnit.MILLISECONDS)
+                    .setInputData(androidx.work.workDataOf("matchId" to match.matchId))
+                    .addTag("match_notification")
+                    .build()
+                
                 workManager.enqueueUniqueWork(
                     uniqueWorkName,
                     androidx.work.ExistingWorkPolicy.REPLACE,
@@ -408,6 +422,21 @@ class SoccerRepository private constructor(private val context: android.content.
     fun cancelAllNotifications() {
         val workManager = androidx.work.WorkManager.getInstance(context)
         workManager.cancelAllWorkByTag("match_notification")
+        
+        val alarmManager = context.getSystemService(android.content.Context.ALARM_SERVICE) as android.app.AlarmManager
+        _rawTodaysGames.value.forEach { match ->
+            val serviceIntent = android.content.Intent(context, com.paperapps.paperscores.service.ScoreOverlayService::class.java)
+            val pendingIntent = android.app.PendingIntent.getForegroundService(
+                context,
+                match.matchId.hashCode(),
+                serviceIntent,
+                android.app.PendingIntent.FLAG_NO_CREATE or android.app.PendingIntent.FLAG_IMMUTABLE
+            )
+            if (pendingIntent != null) {
+                alarmManager.cancel(pendingIntent)
+                pendingIntent.cancel()
+            }
+        }
     }
 
     companion object {
