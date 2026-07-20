@@ -24,7 +24,7 @@ fun MatchScoreHeader(
     match: MatchDetails,
     onTeamClick: (String) -> Unit
 ) {
-    Column(modifier = Modifier.fillMaxWidth()) {
+    Column(modifier = Modifier.fillMaxWidth().padding(end=16.dp)) {
         val dateFormatted = try {
             val formatterIn = java.time.format.DateTimeFormatter.ofPattern("EEE, MMM d, yyyy, HH:mm z", java.util.Locale.US)
             val zonedDateTime = java.time.ZonedDateTime.parse(match.matchTime, formatterIn)

@@ -1,11 +1,9 @@
 package com.paperapps.paperscores.ui.screens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import com.paperapps.paperui.components.PanoramaPager
 import androidx.compose.material.icons.Icons
@@ -16,13 +14,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.material.icons.filled.SportsSoccer
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.Tv
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.border
-import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -32,13 +28,10 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import coil.compose.AsyncImage
 import com.paperapps.paperscores.theme.PureBlack
 import com.paperapps.paperscores.theme.PureWhite
-import com.paperapps.paperscores.theme.EInkGrey
 import com.paperapps.paperui.components.AppbarAction
 import com.paperapps.paperui.components.ApplicationBar
-import com.paperapps.paperui.components.DashedDivider
 import com.paperapps.paperui.components.PanoramaHeader
 import com.paperapps.paperscores.ui.components.TableView
 import com.paperapps.paperscores.ui.components.MatchScoreHeader
@@ -60,12 +53,15 @@ fun GameDetailsScreen(
         viewModel.loadMatchDetails(matchId)
     }
 
+    val screenTitle = matchDetails?.let { "${it.homeTeam.name} vs ${it.awayTeam.name}" }
+
     Column(modifier = Modifier.fillMaxSize()) {
         PanoramaHeader(
             pagerState = pagerState,
             titles = listOf("box score", "stats", "lineups", "tournament"),
             coroutineScope = coroutineScope,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            screenTitle = screenTitle
         )
 
         if (matchDetails == null) {
@@ -147,7 +143,7 @@ fun BoxScoreTab(match: com.paperapps.paperscores.network.models.MatchDetails, on
 
         val filteredEvents = match.events.filter { it.type != "Half" }
 
-        LazyColumn(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(modifier = Modifier.fillMaxSize().padding(end=16.dp)) {
             items(filteredEvents) { event ->
                 Row(
                     modifier = Modifier
@@ -215,7 +211,6 @@ fun BoxScoreTab(match: com.paperapps.paperscores.network.models.MatchDetails, on
                         }
                     }
                 }
-                DashedDivider()
             }
             if (match.events.isEmpty()) {
                 item {
@@ -230,7 +225,8 @@ fun BoxScoreTab(match: com.paperapps.paperscores.network.models.MatchDetails, on
 fun StatsTab(match: com.paperapps.paperscores.network.models.MatchDetails) {
     LazyColumn(
         modifier = Modifier
-            .fillMaxSize(),
+            .fillMaxSize()
+            .padding(end=16.dp),
     ) {
         items(match.stats) { stat ->
             Row(
@@ -243,7 +239,6 @@ fun StatsTab(match: com.paperapps.paperscores.network.models.MatchDetails) {
                 Text(stat.title, modifier = Modifier.weight(2f), textAlign = TextAlign.Center, fontSize = 14.sp)
                 Text(stat.awayStat, modifier = Modifier.weight(1f), textAlign = TextAlign.End, fontWeight = FontWeight.Bold)
             }
-            DashedDivider()
         }
         if (match.stats.isEmpty()) {
             item {
@@ -257,7 +252,8 @@ fun StatsTab(match: com.paperapps.paperscores.network.models.MatchDetails) {
 fun LineupsTab(match: com.paperapps.paperscores.network.models.MatchDetails) {
     Row(
         modifier = Modifier
-            .fillMaxSize(),
+            .fillMaxSize()
+            .padding(end=16.dp),
     ) {
         // Home Lineup
         Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
@@ -280,7 +276,7 @@ fun LineupsTab(match: com.paperapps.paperscores.network.models.MatchDetails) {
         }
 
         // Away Lineup
-        Column(modifier = Modifier.weight(1f).padding(start = 8.dp)) {
+        Column(modifier = Modifier.weight(1f)) {
             val aLineup = match.awayLineup
             if (aLineup != null) {
                 Text(match.awayTeam.name, fontWeight = FontWeight.Bold, fontSize = 16.sp)
@@ -304,23 +300,25 @@ fun LineupsTab(match: com.paperapps.paperscores.network.models.MatchDetails) {
 @Composable
 fun TournamentTab(viewModel: GameDetailsViewModel) {
     val tournamentData by viewModel.tournamentData.collectAsState()
-    
-    when (val state = tournamentData) {
-        is com.paperapps.paperscores.ui.viewmodel.TournamentState.Loading -> {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("Loading tournament...", fontSize = 14.sp, color = PureBlack)
+
+    Column(modifier = Modifier.fillMaxSize().padding(end=16.dp)) {
+        when (val state = tournamentData) {
+            is com.paperapps.paperscores.ui.viewmodel.TournamentState.Loading -> {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("Loading tournament...", fontSize = 14.sp, color = PureBlack)
+                }
             }
-        }
-        is com.paperapps.paperscores.ui.viewmodel.TournamentState.Empty -> {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("No tournament data available.", fontSize = 14.sp, color = PureBlack)
+            is com.paperapps.paperscores.ui.viewmodel.TournamentState.Empty -> {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("No tournament data available.", fontSize = 14.sp, color = PureBlack)
+                }
             }
-        }
-        is com.paperapps.paperscores.ui.viewmodel.TournamentState.Table -> {
-            TableView(state.entries)
-        }
-        is com.paperapps.paperscores.ui.viewmodel.TournamentState.Playoff -> {
-            PlayoffBracketView(state.rounds)
+            is com.paperapps.paperscores.ui.viewmodel.TournamentState.Table -> {
+                TableView(state.entries)
+            }
+            is com.paperapps.paperscores.ui.viewmodel.TournamentState.Playoff -> {
+                PlayoffBracketView(state.rounds)
+            }
         }
     }
 }
@@ -339,9 +337,8 @@ fun PlayoffBracketView(rounds: List<com.paperapps.paperscores.network.models.Pla
                 fontWeight = FontWeight.Bold,
                 fontSize = 14.sp,
                 color = PureBlack,
-                modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
+                modifier = Modifier.padding(bottom = 8.dp)
             )
-            DashedDivider()
             
             round.matchups.forEach { matchup ->
                 Column(modifier = Modifier.padding(vertical = 12.dp)) {
@@ -394,7 +391,6 @@ fun PlayoffBracketView(rounds: List<com.paperapps.paperscores.network.models.Pla
                         }
                     }
                 }
-                DashedDivider()
             }
         }
     }

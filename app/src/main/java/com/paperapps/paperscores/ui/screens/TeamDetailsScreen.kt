@@ -2,12 +2,10 @@ package com.paperapps.paperscores.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import com.paperapps.paperui.components.PanoramaPager
 import androidx.compose.material.icons.Icons
@@ -33,9 +31,7 @@ import com.paperapps.paperui.components.AppbarAction
 import com.paperapps.paperui.components.ApplicationBar
 import com.paperapps.paperui.components.PanoramaHeader
 import com.paperapps.paperscores.ui.components.TableView
-import com.paperapps.paperscores.ui.components.MatchScoreHeader
 import com.paperapps.paperscores.ui.components.MatchCard
-import com.paperapps.paperui.components.DashedDivider
 import com.paperapps.paperscores.ui.viewmodel.TeamDetailsState
 import com.paperapps.paperscores.ui.viewmodel.TeamDetailsViewModel
 
@@ -55,12 +51,15 @@ fun TeamDetailsScreen(
         viewModel.loadTeamDetails(teamId)
     }
 
+    val screenTitle = (uiState as? TeamDetailsState.Success)?.details?.name
+
     Column(modifier = Modifier.fillMaxSize().background(PureWhite)) {
         PanoramaHeader(
             pagerState = pagerState,
             titles = listOf("overview", "fixtures", "table", "squad"),
             coroutineScope = coroutineScope,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            screenTitle = screenTitle
         )
 
         Box(modifier = Modifier.weight(1f)) {
@@ -108,7 +107,7 @@ fun TeamDetailsScreen(
 @Composable
 fun OverviewTab(details: TeamDetails, onGameClick: (String) -> Unit, onTeamClick: (String) -> Unit) {
     LazyColumn(
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier.fillMaxSize().padding(end=16.dp),
     ) {
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -181,12 +180,6 @@ fun OverviewTab(details: TeamDetails, onGameClick: (String) -> Unit, onTeamClick
                     Text(nextMatch.tournamentName, fontSize = 12.sp, color = EInkGrey)
                 }
             }
-
-            item {
-                Spacer(modifier = Modifier.height(24.dp))
-                DashedDivider()
-                Spacer(modifier = Modifier.height(24.dp))
-            }
         }
 
         if (details.teamForm.isNotEmpty()) {
@@ -247,7 +240,7 @@ fun FixturesTab(details: TeamDetails, onGameClick: (String) -> Unit) {
         }
     } else {
         LazyColumn(
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier.fillMaxSize().padding(end=16.dp)
         ) {
             items(details.fixtures) { match ->
                 MatchCard(match = match, onClick = { onGameClick(match.matchId) })
@@ -263,7 +256,11 @@ fun TableTab(details: TeamDetails) {
             Text("No table data available.", fontSize = 14.sp, color = EInkGrey)
         }
     } else {
-        TableView(details.table)
+        Column(
+            modifier = Modifier.fillMaxSize().padding(end=16.dp)
+        ) {
+            TableView(details.table)
+        }
     }
 }
 
@@ -275,7 +272,7 @@ fun SquadTab(details: TeamDetails) {
         }
     } else {
         LazyColumn(
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier.fillMaxSize().padding(end=16.dp)
         ) {
             details.squad.forEach { section ->
                 item {
@@ -286,7 +283,6 @@ fun SquadTab(details: TeamDetails) {
                         color = PureBlack,
                         modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
                     )
-                    DashedDivider()
                 }
                 items(section.members) { member ->
                     Row(
@@ -314,7 +310,6 @@ fun SquadTab(details: TeamDetails) {
                             color = PureBlack
                         )
                     }
-                    DashedDivider()
                 }
             }
         }

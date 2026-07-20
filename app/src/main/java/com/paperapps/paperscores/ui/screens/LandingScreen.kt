@@ -47,7 +47,8 @@ fun LandingScreen(
             pagerState = pagerState,
             titles = listOf("games", "profile", "settings"),
             coroutineScope = coroutineScope,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            screenTitle = "PaperScores"
         )
 
         PanoramaPager(
