@@ -2,8 +2,8 @@ package com.paperapps.paperscores.ui.screens
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import com.paperapps.paperui.components.PaperLazyColumn
 import androidx.compose.material3.Text
 import androidx.compose.material3.Icon
 import androidx.compose.material.icons.Icons
@@ -70,13 +70,12 @@ fun TodaysGamesScreen(
             )
         }
 
-        Box(modifier = Modifier.fillMaxSize().weight(1f)) {
+        Box(modifier = Modifier.fillMaxSize()) {
             if (isLoading && todaysGames.isEmpty()) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(top = 32.dp),
-                    contentAlignment = androidx.compose.ui.Alignment.TopCenter
                 ) {
                     Text(
                         text = "Loading...",
@@ -89,7 +88,6 @@ fun TodaysGamesScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(top = 32.dp),
-                    contentAlignment = androidx.compose.ui.Alignment.TopCenter
                 ) {
                     Text(
                         text = "No games for this day for followed teams.",
@@ -98,9 +96,13 @@ fun TodaysGamesScreen(
                     )
                 }
             } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(top = 16.dp, end = 16.dp)
+                PaperLazyColumn(
+                    // padding(end) on the outer modifier insets the entire Row
+                    // (list + dots) from the right edge. This mirrors BoxScoreTab
+                    // and keeps the dots from sitting flush against the panorama
+                    // peek area of the next tab.
+                    modifier = Modifier.fillMaxSize().padding(end = 16.dp),
+                    refreshKey = todaysGames,
                 ) {
                     items(todaysGames) { match ->
                         MatchCard(match = match, onClick = { onGameClick(match.matchId) })

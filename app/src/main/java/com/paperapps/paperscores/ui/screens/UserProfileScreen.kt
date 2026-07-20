@@ -3,8 +3,8 @@ package com.paperapps.paperscores.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import com.paperapps.paperui.components.PaperLazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.StarOutline
@@ -46,10 +46,13 @@ fun UserProfileScreen(
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        LazyColumn(
+        PaperLazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(end = 16.dp),
+            // TeamGridCard grows when nextMatch data arrives (null → loaded),
+            // so reset the height cache whenever teamFixtures updates.
+            refreshKey = teamFixtures,
         ) {
             if (isSearchBarVisible) {
                 item {

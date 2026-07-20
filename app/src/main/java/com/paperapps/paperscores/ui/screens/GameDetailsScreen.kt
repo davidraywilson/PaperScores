@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import com.paperapps.paperui.components.PaperLazyColumn
 import androidx.compose.foundation.pager.rememberPagerState
 import com.paperapps.paperui.components.PanoramaPager
 import androidx.compose.material.icons.Icons
@@ -143,7 +144,11 @@ fun BoxScoreTab(match: com.paperapps.paperscores.network.models.MatchDetails, on
 
         val filteredEvents = match.events.filter { it.type != "Half" }
 
-        LazyColumn(modifier = Modifier.fillMaxSize().padding(end=16.dp)) {
+        PaperLazyColumn(
+            modifier = Modifier.fillMaxSize().padding(end = 16.dp),
+            // Reset pages whenever match data changes (live polling updates).
+            refreshKey = match,
+        ) {
             items(filteredEvents) { event ->
                 Row(
                     modifier = Modifier
@@ -223,10 +228,11 @@ fun BoxScoreTab(match: com.paperapps.paperscores.network.models.MatchDetails, on
 
 @Composable
 fun StatsTab(match: com.paperapps.paperscores.network.models.MatchDetails) {
-    LazyColumn(
+    PaperLazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .padding(end=16.dp),
+            .padding(end = 16.dp),
+        refreshKey = match,
     ) {
         items(match.stats) { stat ->
             Row(
@@ -327,9 +333,10 @@ fun TournamentTab(viewModel: GameDetailsViewModel) {
 
 @Composable
 fun PlayoffBracketView(rounds: List<com.paperapps.paperscores.network.models.PlayoffRound>) {
-    LazyColumn(
+    PaperLazyColumn(
         modifier = Modifier
             .fillMaxSize(),
+        refreshKey = rounds,
     ) {
         items(rounds) { round ->
             Text(

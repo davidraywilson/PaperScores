@@ -3,8 +3,8 @@ package com.paperapps.paperscores.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import com.paperapps.paperui.components.PaperLazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.pager.rememberPagerState
 import com.paperapps.paperui.components.PanoramaPager
@@ -106,8 +106,9 @@ fun TeamDetailsScreen(
 
 @Composable
 fun OverviewTab(details: TeamDetails, onGameClick: (String) -> Unit, onTeamClick: (String) -> Unit) {
-    LazyColumn(
-        modifier = Modifier.fillMaxSize().padding(end=16.dp),
+    PaperLazyColumn(
+        modifier = Modifier.fillMaxSize().padding(end = 16.dp),
+        refreshKey = details,
     ) {
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -239,8 +240,9 @@ fun FixturesTab(details: TeamDetails, onGameClick: (String) -> Unit) {
             Text("No fixtures available.", fontSize = 14.sp, color = EInkGrey)
         }
     } else {
-        LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(end=16.dp)
+        PaperLazyColumn(
+            modifier = Modifier.fillMaxSize().padding(end = 16.dp),
+            refreshKey = details,
         ) {
             items(details.fixtures) { match ->
                 MatchCard(match = match, onClick = { onGameClick(match.matchId) })
@@ -271,8 +273,9 @@ fun SquadTab(details: TeamDetails) {
             Text("No squad data available.", fontSize = 14.sp, color = EInkGrey)
         }
     } else {
-        LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(end=16.dp)
+        PaperLazyColumn(
+            modifier = Modifier.fillMaxSize().padding(end = 16.dp),
+            refreshKey = details,
         ) {
             details.squad.forEach { section ->
                 item {
