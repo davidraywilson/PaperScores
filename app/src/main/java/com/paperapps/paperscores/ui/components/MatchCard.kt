@@ -19,7 +19,7 @@ fun MatchCard(match: MatchDetails, onClick: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 10.dp)
+            .padding(bottom = 24.dp)
             .clickable(onClick = onClick)
     ) {
         Column {

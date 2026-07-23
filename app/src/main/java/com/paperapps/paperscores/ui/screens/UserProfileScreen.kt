@@ -159,8 +159,8 @@ fun UserProfileScreen(
 
             if (!isSearchBarVisible) {
                 item {
-                    Text("followed teams", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = PureBlack)
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("followed teams", fontSize = 24.sp, fontWeight = FontWeight.Bold, lineHeight = 24.sp, color = PureBlack)
+                    Spacer(modifier = Modifier.height(24.dp))
                 }
 
                 items(followedTeams.chunked(2)) { rowTeams ->

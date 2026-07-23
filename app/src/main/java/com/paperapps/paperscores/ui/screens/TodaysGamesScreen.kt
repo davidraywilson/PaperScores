@@ -42,7 +42,7 @@ fun TodaysGamesScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(end = 16.dp),
+                .padding(end = 16.dp, bottom = 24.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
         ) {
@@ -75,7 +75,6 @@ fun TodaysGamesScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(top = 32.dp),
                 ) {
                     Text(
                         text = "Loading...",
@@ -87,7 +86,6 @@ fun TodaysGamesScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(top = 32.dp),
                 ) {
                     Text(
                         text = "No games for this day for followed teams.",
