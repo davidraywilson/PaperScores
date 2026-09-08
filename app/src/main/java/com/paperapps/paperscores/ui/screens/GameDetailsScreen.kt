@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.material.icons.filled.SportsSoccer
@@ -52,6 +53,12 @@ fun GameDetailsScreen(
 
     LaunchedEffect(matchId) {
         viewModel.loadMatchDetails(matchId)
+    }
+
+    androidx.activity.compose.BackHandler(enabled = pagerState.currentPage > 0) {
+        coroutineScope.launch {
+            pagerState.animateScrollToPage(0)
+        }
     }
 
     val screenTitle = matchDetails?.let { "${it.homeTeam.name} vs ${it.awayTeam.name}" }
@@ -95,11 +102,6 @@ fun GameDetailsScreen(
         ApplicationBar(
             actions = listOf(
                 AppbarAction(
-                    icon = Icons.Filled.ArrowBack,
-                    label = "Back",
-                    onClick = onBackClick
-                ),
-                AppbarAction(
                     icon = Icons.Filled.Refresh,
                     label = "Refresh",
                     isLoading = isLoading,
@@ -127,7 +129,9 @@ fun GameDetailsScreen(
                         }
                     }
                 )
-            )
+            ),
+            pagerState = pagerState,
+            onBack = onBackClick
         )
     }
 }
@@ -145,7 +149,7 @@ fun BoxScoreTab(match: com.paperapps.paperscores.network.models.MatchDetails, on
         val filteredEvents = match.events.filter { it.type != "Half" }
 
         PaperLazyColumn(
-            modifier = Modifier.fillMaxSize().padding(end = 16.dp),
+            modifier = Modifier.fillMaxSize(),
             // Reset pages whenever match data changes (live polling updates).
             refreshKey = match,
         ) {
@@ -231,7 +235,7 @@ fun StatsTab(match: com.paperapps.paperscores.network.models.MatchDetails) {
     PaperLazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .padding(end = 16.dp),
+            ,
         refreshKey = match,
     ) {
         items(match.stats) { stat ->
@@ -259,7 +263,7 @@ fun LineupsTab(match: com.paperapps.paperscores.network.models.MatchDetails) {
     Row(
         modifier = Modifier
             .fillMaxSize()
-            .padding(end=16.dp),
+            ,
     ) {
         // Home Lineup
         Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
@@ -307,7 +311,7 @@ fun LineupsTab(match: com.paperapps.paperscores.network.models.MatchDetails) {
 fun TournamentTab(viewModel: GameDetailsViewModel) {
     val tournamentData by viewModel.tournamentData.collectAsState()
 
-    Column(modifier = Modifier.fillMaxSize().padding(end=16.dp)) {
+    Column(modifier = Modifier.fillMaxSize()) {
         when (val state = tournamentData) {
             is com.paperapps.paperscores.ui.viewmodel.TournamentState.Loading -> {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {

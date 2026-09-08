@@ -123,7 +123,6 @@ class ScoreOverlayService : Service(), LifecycleOwner, ViewModelStoreOwner, Save
                 activeMatchIds.add(intentMatchId)
                 showOverlay(intentMatchId)
             }
-            startPolling()
         }
         
         return START_STICKY
@@ -146,23 +145,6 @@ class ScoreOverlayService : Service(), LifecycleOwner, ViewModelStoreOwner, Save
             .build()
 
         startForeground(1, notification)
-    }
-
-    private fun startPolling() {
-        if (isPolling) return
-        isPolling = true
-        scope.launch {
-            while (isActive) {
-                if (activeMatchIds.isEmpty()) {
-                    isPolling = false
-                    break
-                }
-                activeMatchIds.forEach { id ->
-                    repository.getMatchDetails(id)
-                }
-                delay(60_000)
-            }
-        }
     }
 
     private fun getNextYPosition(): Int {
@@ -195,7 +177,7 @@ class ScoreOverlayService : Service(), LifecycleOwner, ViewModelStoreOwner, Save
                 
                 LaunchedEffect(matchId) {
                     while(isActive) {
-                        currentMatch = repository.getMatchDetails(matchId)
+                        currentMatch = repository.getMatchDetails(matchId, forceRefresh = true)
                         delay(60000)
                     }
                 }
@@ -220,7 +202,7 @@ class ScoreOverlayService : Service(), LifecycleOwner, ViewModelStoreOwner, Save
         )
 
         layoutParams.gravity = Gravity.TOP or Gravity.START
-        layoutParams.x = screenWidth // Start on right edge
+        layoutParams.x = screenWidth // WindowManager will clamp this
         layoutParams.y = getNextYPosition()
         layoutParamsMap[matchId] = layoutParams
 
@@ -234,7 +216,8 @@ class ScoreOverlayService : Service(), LifecycleOwner, ViewModelStoreOwner, Save
             override fun onTouch(v: View, event: MotionEvent): Boolean {
                 when (event.action) {
                     MotionEvent.ACTION_DOWN -> {
-                        initialX = layoutParams.x
+                        val actualMaxX = Math.max(0, screenWidth - composeView.width)
+                        initialX = layoutParams.x.coerceIn(0, actualMaxX)
                         initialY = layoutParams.y
                         initialTouchX = event.rawX
                         initialTouchY = event.rawY
@@ -249,8 +232,11 @@ class ScoreOverlayService : Service(), LifecycleOwner, ViewModelStoreOwner, Save
                         if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
                             isClick = false
                         }
-                        layoutParams.x = initialX + dx.toInt()
+                        
+                        val actualMaxX = Math.max(0, screenWidth - composeView.width)
+                        layoutParams.x = (initialX + dx.toInt()).coerceIn(0, actualMaxX)
                         layoutParams.y = initialY + dy.toInt()
+                        
                         windowManager?.updateViewLayout(composeView, layoutParams)
 
                         dismissView?.let { dv ->
@@ -273,8 +259,9 @@ class ScoreOverlayService : Service(), LifecycleOwner, ViewModelStoreOwner, Save
                         } else if (!isClick) {
                             // Snap to nearest edge
                             val screenMid = screenWidth / 2
-                            if (layoutParams.x > screenMid) {
-                                layoutParams.x = screenWidth
+                            val viewCenterX = layoutParams.x + composeView.width / 2
+                            if (viewCenterX > screenMid) {
+                                layoutParams.x = Math.max(0, screenWidth - composeView.width)
                             } else {
                                 layoutParams.x = 0
                             }

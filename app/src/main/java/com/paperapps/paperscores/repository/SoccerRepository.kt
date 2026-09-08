@@ -69,7 +69,7 @@ class SoccerRepository private constructor(private val context: android.content.
             game.homeTeam.id in teamIds ||
             game.awayTeam.id in teamIds
         }
-        scheduleNotifications(followedGames)
+        scheduleNotifications(rawGames, teamIds)
         followedGames
     }.stateIn(scope, SharingStarted.Lazily, emptyList())
 
@@ -249,18 +249,19 @@ class SoccerRepository private constructor(private val context: android.content.
     suspend fun getMatchDetails(matchId: String, forceRefresh: Boolean = false): MatchDetails? {
         val details = apiClient.getMatchDetails(matchId, forceRefresh)
         
-        // Find if this is a today's game
-        var todayMatch = _rawTodaysGames.value.find { it.matchId == matchId }
-        
-        if (todayMatch != null && details != null) {
-            // Overwrite with todayMatch's status if it's more specific, but keep details score
-            val finalStatus = if (details.status !in listOf("Active", "Upcoming", "Finished")) details.status else todayMatch.status
-            val finalLiveTime = if (finalStatus == details.status) details.liveTime else todayMatch.liveTime.ifEmpty { details.liveTime }
-            
-            return details.copy(
-                status = finalStatus,
-                liveTime = finalLiveTime
-            )
+        if (details != null) {
+            val currentGames = _rawTodaysGames.value.toMutableList()
+            val index = currentGames.indexOfFirst { it.matchId == matchId }
+            if (index != -1) {
+                val oldMatch = currentGames[index]
+                val updatedMatch = oldMatch.copy(
+                    score = details.score,
+                    status = details.status,
+                    liveTime = details.liveTime
+                )
+                currentGames[index] = updatedMatch
+                _rawTodaysGames.value = currentGames
+            }
         }
         
         return details
@@ -356,14 +357,15 @@ class SoccerRepository private constructor(private val context: android.content.
         return apiClient.getTeamDetails(teamId)
     }
 
-    private fun scheduleNotifications(games: List<MatchDetails>) {
+    private fun scheduleNotifications(games: List<MatchDetails>, teamIds: List<String>) {
         val workManager = androidx.work.WorkManager.getInstance(context)
         val userPrefs = UserPreferences.getInstance(context)
         val remindersEnabled = userPrefs.isMatchRemindersEnabled
         val alarmManager = context.getSystemService(android.content.Context.ALARM_SERVICE) as android.app.AlarmManager
 
         val now = System.currentTimeMillis()
-        games.filter { it.status == "Upcoming" && it.startTimeMs != null }.forEach { match ->
+        games.forEach { match ->
+            val isTeamFollowed = match.homeTeam.id in teamIds || match.awayTeam.id in teamIds
             val uniqueWorkName = "match_notification_${match.matchId}"
             val serviceIntent = android.content.Intent(context, com.paperapps.paperscores.service.ScoreOverlayService::class.java).apply {
                 putExtra("matchId", match.matchId)
@@ -375,7 +377,7 @@ class SoccerRepository private constructor(private val context: android.content.
                 android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
             )
             
-            if (!remindersEnabled) {
+            if (!remindersEnabled || !isTeamFollowed || match.status != "Upcoming" || match.startTimeMs == null) {
                 workManager.cancelUniqueWork(uniqueWorkName)
                 alarmManager.cancel(pendingIntent)
                 return@forEach

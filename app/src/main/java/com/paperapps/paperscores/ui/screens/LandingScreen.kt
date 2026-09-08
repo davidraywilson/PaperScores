@@ -101,7 +101,8 @@ fun LandingScreen(
         }
 
         ApplicationBar(
-            actions = actions
+            actions = actions,
+            pagerState = pagerState
         )
     }
 }

@@ -42,7 +42,7 @@ fun TodaysGamesScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(end = 16.dp, bottom = 24.dp),
+                .padding(bottom = 24.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
         ) {
@@ -99,7 +99,7 @@ fun TodaysGamesScreen(
                     // (list + dots) from the right edge. This mirrors BoxScoreTab
                     // and keeps the dots from sitting flush against the panorama
                     // peek area of the next tab.
-                    modifier = Modifier.fillMaxSize().padding(end = 16.dp),
+                    modifier = Modifier.fillMaxSize(),
                     refreshKey = todaysGames,
                 ) {
                     items(todaysGames) { match ->

@@ -16,6 +16,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -49,6 +50,12 @@ fun TeamDetailsScreen(
 
     LaunchedEffect(teamId) {
         viewModel.loadTeamDetails(teamId)
+    }
+
+    androidx.activity.compose.BackHandler(enabled = pagerState.currentPage > 0) {
+        coroutineScope.launch {
+            pagerState.animateScrollToPage(0)
+        }
     }
 
     val screenTitle = (uiState as? TeamDetailsState.Success)?.details?.name
@@ -93,13 +100,9 @@ fun TeamDetailsScreen(
         }
 
         ApplicationBar(
-            actions = listOf(
-                AppbarAction(
-                    icon = Icons.AutoMirrored.Filled.ArrowBack,
-                    label = "Back",
-                    onClick = onBackClick
-                )
-            )
+            actions = emptyList(),
+            pagerState = pagerState,
+            onBack = onBackClick
         )
     }
 }
@@ -107,7 +110,7 @@ fun TeamDetailsScreen(
 @Composable
 fun OverviewTab(details: TeamDetails, onGameClick: (String) -> Unit, onTeamClick: (String) -> Unit) {
     PaperLazyColumn(
-        modifier = Modifier.fillMaxSize().padding(end = 16.dp),
+        modifier = Modifier.fillMaxSize(),
         refreshKey = details,
     ) {
         item {
@@ -241,7 +244,7 @@ fun FixturesTab(details: TeamDetails, onGameClick: (String) -> Unit) {
         }
     } else {
         PaperLazyColumn(
-            modifier = Modifier.fillMaxSize().padding(end = 16.dp),
+            modifier = Modifier.fillMaxSize(),
             refreshKey = details,
         ) {
             items(details.fixtures) { match ->
@@ -259,7 +262,7 @@ fun TableTab(details: TeamDetails) {
         }
     } else {
         Column(
-            modifier = Modifier.fillMaxSize().padding(end=16.dp)
+            modifier = Modifier.fillMaxSize()
         ) {
             TableView(details.table)
         }
@@ -274,7 +277,7 @@ fun SquadTab(details: TeamDetails) {
         }
     } else {
         PaperLazyColumn(
-            modifier = Modifier.fillMaxSize().padding(end = 16.dp),
+            modifier = Modifier.fillMaxSize(),
             refreshKey = details,
         ) {
             details.squad.forEach { section ->

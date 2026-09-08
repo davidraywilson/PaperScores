@@ -49,7 +49,7 @@ fun UserProfileScreen(
         PaperLazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(end = 16.dp),
+                ,
             // TeamGridCard grows when nextMatch data arrives (null → loaded),
             // so reset the height cache whenever teamFixtures updates.
             refreshKey = teamFixtures,
