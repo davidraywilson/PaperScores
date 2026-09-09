@@ -54,7 +54,7 @@ fun TeamDetailsScreen(
 
     androidx.activity.compose.BackHandler(enabled = pagerState.currentPage > 0) {
         coroutineScope.launch {
-            pagerState.animateScrollToPage(0)
+            pagerState.scrollToPage(0)
         }
     }
 

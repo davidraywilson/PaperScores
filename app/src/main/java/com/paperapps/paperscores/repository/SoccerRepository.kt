@@ -353,6 +353,9 @@ class SoccerRepository private constructor(private val context: android.content.
         return apiClient.getPlayoffBracket(leagueId)
     }
 
+    suspend fun getTournamentDetails(leagueId: String): com.paperapps.paperscores.network.models.TournamentDetails? {
+        return apiClient.getLeagueDetails(leagueId)
+    }
     suspend fun getTeamDetails(teamId: String): com.paperapps.paperscores.network.models.TeamDetails? {
         return apiClient.getTeamDetails(teamId)
     }

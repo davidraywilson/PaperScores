@@ -29,6 +29,7 @@ import com.paperapps.paperscores.ui.viewmodel.UserProfileViewModel
 @Composable
 fun UserProfileScreen(
     onTeamClick: (String) -> Unit,
+    onTournamentClick: (String) -> Unit,
     viewModel: UserProfileViewModel = viewModel()
 ) {
     val followedTeams by viewModel.followedTeams.collectAsState()
@@ -102,6 +103,8 @@ fun UserProfileScreen(
                                 .clickable {
                                     if (result is SearchResult.TeamResult) {
                                         onTeamClick(result.team.id)
+                                    } else if (result is SearchResult.TournamentResult) {
+                                        onTournamentClick(result.tournament.id)
                                     }
                                 },
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -193,6 +196,7 @@ fun UserProfileScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .clickable { onTournamentClick(tournament.id) }
                             .padding(vertical = 12.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically

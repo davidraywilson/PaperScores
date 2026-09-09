@@ -37,6 +37,7 @@ data class MatchDetails(
     val status: String,
     val matchTime: String,
     val liveTime: String = "",
+    val tvNetworks: List<String> = emptyList(),
     val tournamentId: String = "",
     val tournamentName: String = "",
     val stadiumName: String = "",

@@ -32,6 +32,7 @@ import kotlinx.coroutines.launch
 fun LandingScreen(
     onGameClick: (String) -> Unit,
     onTeamClick: (String) -> Unit,
+    onTournamentClick: (String) -> Unit,
     todaysGamesViewModel: TodaysGamesViewModel = viewModel(),
     userProfileViewModel: UserProfileViewModel = viewModel()
 ) {
@@ -57,7 +58,7 @@ fun LandingScreen(
         ) { page ->
             when (page) {
                 0 -> TodaysGamesScreen(onGameClick = onGameClick, viewModel = todaysGamesViewModel)
-                1 -> UserProfileScreen(onTeamClick = onTeamClick, viewModel = userProfileViewModel)
+                1 -> UserProfileScreen(onTeamClick = onTeamClick, onTournamentClick = onTournamentClick, viewModel = userProfileViewModel)
                 2 -> SettingsScreen()
             }
         }

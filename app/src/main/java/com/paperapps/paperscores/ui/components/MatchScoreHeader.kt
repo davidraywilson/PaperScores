@@ -70,6 +70,11 @@ fun MatchScoreHeader(
             Text(match.stadiumName, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = PureBlack)
         }
 
+        if (match.tvNetworks.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(4.dp))
+            Text("📺 ${match.tvNetworks.joinToString(", ")}", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = PureBlack)
+        }
+
         Spacer(modifier = Modifier.height(24.dp))
 
         val grayscaleMatrix = ColorMatrix().apply { setToSaturation(0f) }

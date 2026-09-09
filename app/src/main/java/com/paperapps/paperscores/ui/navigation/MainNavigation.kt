@@ -38,6 +38,9 @@ fun MainNavigation() {
                 },
                 onTeamClick = { teamId ->
                     navController.navigate("team_details/$teamId")
+                },
+                onTournamentClick = { tournamentId ->
+                    navController.navigate("tournament_details/$tournamentId")
                 }
             )
         }
@@ -72,6 +75,26 @@ fun MainNavigation() {
             val teamId = backStackEntry.arguments?.getString("teamId") ?: return@composable
             TeamDetailsScreen(
                 teamId = teamId,
+                onBackClick = { navController.popBackStack() },
+                onGameClick = { matchId ->
+                    navController.navigate("game_details/$matchId")
+                },
+                onTeamClick = { newTeamId ->
+                    navController.navigate("team_details/$newTeamId")
+                }
+            )
+        }
+        composable(
+            "tournament_details/{tournamentId}",
+            arguments = listOf(navArgument("tournamentId") { type = NavType.StringType }),
+            enterTransition = { fadeIn(animationSpec = snap()) },
+            exitTransition = { fadeOut(animationSpec = snap()) },
+            popEnterTransition = { fadeIn(animationSpec = snap()) },
+            popExitTransition = { fadeOut(animationSpec = snap()) }
+        ) { backStackEntry ->
+            val tournamentId = backStackEntry.arguments?.getString("tournamentId") ?: return@composable
+            com.paperapps.paperscores.ui.screens.TournamentDetailsScreen(
+                tournamentId = tournamentId,
                 onBackClick = { navController.popBackStack() },
                 onGameClick = { matchId ->
                     navController.navigate("game_details/$matchId")

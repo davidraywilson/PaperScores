@@ -1,0 +1,3 @@
+    suspend fun getTournamentDetails(leagueId: String): com.paperapps.paperscores.network.models.TournamentDetails? {
+        return apiClient.getLeagueDetails(leagueId)
+    }

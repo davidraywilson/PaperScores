@@ -274,6 +274,19 @@ class FotMobApiClient {
                     val tableObj = content?.get("table")?.jsonObjectOrNull
                     val tableUrl = tableObj?.get("url")?.toString()?.trim('"')?.takeIf { it != "null" && it.isNotBlank() }
 
+                    val seoObj = pageProps?.get("seo")?.jsonObjectOrNull
+                    val broadcastEvent = seoObj?.get("eventJSONLD")?.jsonObjectOrNull?.get("broadcastEvent")?.jsonObjectOrNull
+                    val publishedOn = broadcastEvent?.get("publishedOn")?.jsonArrayOrNull
+                    val tvNetworks = publishedOn?.mapNotNull { el ->
+                        val obj = el.jsonObjectOrNull ?: return@mapNotNull null
+                        val country = obj["areaServed"]?.jsonObjectOrNull?.get("name")?.jsonPrimitive?.content
+                        if (country == "USA") {
+                            obj["name"]?.jsonPrimitive?.content
+                        } else {
+                            null
+                        }
+                    }?.distinct() ?: emptyList()
+
                     val details = MatchDetails(
                         matchId = matchId,
                         homeTeam = homeTeam,
@@ -282,6 +295,7 @@ class FotMobApiClient {
                         status = if (isFinished) "Finished" else if (!isStarted) "Upcoming" else if (!reasonShort.isNullOrBlank() && reasonShort !in listOf("HT", "FT", "Pen", "AET", "Half-Time", "Full-Time")) reasonShort else "Active",
                         matchTime = matchTimeUTC,
                         liveTime = liveTimeStr,
+                        tvNetworks = tvNetworks,
                         tournamentName = leagueName,
                         stadiumName = stadiumName,
                         events = eventsList,
@@ -513,6 +527,121 @@ class FotMobApiClient {
         }
     }
 
+    suspend fun getLeagueDetails(leagueId: String): com.paperapps.paperscores.network.models.TournamentDetails? {
+        return kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                val response = client.get("https://www.fotmob.com/leagues/$leagueId") {
+                    header(io.ktor.http.HttpHeaders.CacheControl, "no-cache")
+                }
+                val text = response.bodyAsText()
+                val regex = """<script id="__NEXT_DATA__" type="application/json">(.*?)</script>""".toRegex(RegexOption.DOT_MATCHES_ALL)
+                val match = regex.find(text)
+                if (match != null) {
+                    val jsonString = match.groupValues[1]
+                    val jsonObject = Json { ignoreUnknownKeys = true }.parseToJsonElement(jsonString).jsonObjectOrNull
+                    val pageProps = jsonObject?.get("props")?.jsonObjectOrNull?.get("pageProps")?.jsonObjectOrNull ?: return@withContext null
+
+                    val detailsObj = pageProps["details"]?.jsonObjectOrNull
+                    val name = detailsObj?.get("name")?.toString()?.trim('"') ?: ""
+
+                    // Parse Table
+                    val tableArray = pageProps["table"]?.jsonArrayOrNull
+                    val tableEntries = mutableListOf<com.paperapps.paperscores.network.models.TableEntry>()
+                    if (tableArray != null && tableArray.isNotEmpty()) {
+                        val firstTableObj = tableArray.firstOrNull()?.jsonObjectOrNull
+                        val tableDataObj = firstTableObj?.get("data")?.jsonObjectOrNull
+                        val tableAllObj = tableDataObj?.get("table")?.jsonObjectOrNull
+                        val allArray = tableAllObj?.get("all")?.jsonArrayOrNull
+
+                        allArray?.forEach { el ->
+                            val entryObj = el.jsonObjectOrNull ?: return@forEach
+                            val id = entryObj["id"]?.toString()?.trim('"') ?: ""
+                            val tName = entryObj["name"]?.toString()?.trim('"') ?: ""
+                            val played = entryObj["played"]?.jsonPrimitive?.intOrNull ?: 0
+                            val wins = entryObj["wins"]?.jsonPrimitive?.intOrNull ?: 0
+                            val draws = entryObj["draws"]?.jsonPrimitive?.intOrNull ?: 0
+                            val losses = entryObj["losses"]?.jsonPrimitive?.intOrNull ?: 0
+                            val pts = entryObj["pts"]?.jsonPrimitive?.intOrNull ?: 0
+                            val scoresStr = entryObj["scoresStr"]?.toString()?.trim('"') ?: "0-0"
+                            val parts = scoresStr.split("-")
+                            val goalsFor = parts.getOrNull(0)?.toIntOrNull() ?: 0
+                            val goalsAgainst = parts.getOrNull(1)?.toIntOrNull() ?: 0
+
+                            tableEntries.add(
+                                com.paperapps.paperscores.network.models.TableEntry(
+                                    id = id,
+                                    name = tName,
+                                    played = played,
+                                    wins = wins,
+                                    draws = draws,
+                                    losses = losses,
+                                    goalsFor = goalsFor,
+                                    goalsAgainst = goalsAgainst,
+                                    points = pts
+                                )
+                            )
+                        }
+                    }
+
+                    // Parse Fixtures
+                    val fixturesArray = pageProps["fixtures"]?.jsonObjectOrNull?.get("allMatches")?.jsonArrayOrNull
+                    val fixtures = mutableListOf<com.paperapps.paperscores.network.models.MatchDetails>()
+                    fixturesArray?.forEach { fEl ->
+                        val fObj = fEl.jsonObjectOrNull ?: return@forEach
+                        val matchId = fObj["id"]?.toString()?.trim('"') ?: return@forEach
+                        
+                        val homeObj = fObj["home"]?.jsonObjectOrNull
+                        val awayObj = fObj["away"]?.jsonObjectOrNull
+                        val hId = homeObj?.get("id")?.toString()?.trim('"') ?: ""
+                        val hName = homeObj?.get("name")?.toString()?.trim('"') ?: ""
+                        val aId = awayObj?.get("id")?.toString()?.trim('"') ?: ""
+                        val aName = awayObj?.get("name")?.toString()?.trim('"') ?: ""
+
+                        val statusObj = fObj["status"]?.jsonObjectOrNull
+                        val started = statusObj?.get("started")?.jsonPrimitive?.booleanOrNull ?: false
+                        val finished = statusObj?.get("finished")?.jsonPrimitive?.booleanOrNull ?: false
+                        val cancelled = statusObj?.get("cancelled")?.jsonPrimitive?.booleanOrNull ?: false
+                        val utcTime = statusObj?.get("utcTime")?.toString()?.trim('"') ?: ""
+                        val reasonObj = statusObj?.get("reason")?.jsonObjectOrNull
+                        val reasonShort = reasonObj?.get("short")?.toString()?.trim('"')
+                        
+                        val scoreStr = statusObj?.get("scoreStr")?.toString()?.trim('"')
+                        val scoreParts = scoreStr?.split(" - ")
+                        val hScore = scoreParts?.getOrNull(0)?.trim()?.toIntOrNull()
+                        val aScore = scoreParts?.getOrNull(1)?.trim()?.toIntOrNull()
+
+                        val statusStr = if (finished) "Finished" else if (!started) "Upcoming" else if (cancelled) "Cancelled" else if (!reasonShort.isNullOrBlank() && reasonShort !in listOf("HT", "FT", "Pen", "AET", "Half-Time", "Full-Time")) reasonShort else "Active"
+                        
+                        fixtures.add(
+                            com.paperapps.paperscores.network.models.MatchDetails(
+                                matchId = matchId,
+                                homeTeam = com.paperapps.paperscores.network.models.Team(hId, hName, ""),
+                                awayTeam = com.paperapps.paperscores.network.models.Team(aId, aName, ""),
+                                score = if (!started) com.paperapps.paperscores.network.models.Score(null, null) else com.paperapps.paperscores.network.models.Score(hScore, aScore),
+                                status = statusStr,
+                                matchTime = utcTime,
+                                liveTime = reasonShort ?: "",
+                                tournamentId = leagueId,
+                                tournamentName = name
+                            )
+                        )
+                    }
+
+                    return@withContext com.paperapps.paperscores.network.models.TournamentDetails(
+                        id = leagueId,
+                        name = name,
+                        table = tableEntries,
+                        fixtures = fixtures.filter { it.status == "Upcoming" },
+                        overviewMatches = fixtures.filter { it.status == "Finished" || it.status == "Active" }.takeLast(5).reversed() + fixtures.filter { it.status == "Upcoming" }.take(5)
+                    )
+                }
+                return@withContext null
+            } catch (e: Exception) {
+                e.printStackTrace()
+                return@withContext null
+            }
+        }
+    }
     suspend fun getLeagueScoreboard(leagueId: String): LeagueScoreboard? {
         return try {
             client.get("$baseUrl/leagueScoreboard?leagueId=$leagueId").body()
